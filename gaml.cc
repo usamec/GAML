@@ -66,7 +66,11 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
 
   vector<pair<int, int>> zeros;
   double cur_prob = prob_calc.CalcProb(paths, zeros, total_len);
-  printf("start prob %lf len %d: ", cur_prob, total_len);
+  printf("start prob %lf len %d low prob reads", cur_prob, total_len);
+  for (auto &e: zeros) {
+    printf("%d/%d ", e.first, e.second);
+  }
+  printf("\n");
   OutputPathsToFile(paths, gr, kmer, threshold, "output2l.fas");
   printf("\n");
 
@@ -280,11 +284,15 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     timeinfo = localtime (&rawtime);
 
     strftime (buffer,80,"%H:%M:%S",timeinfo);
-    printf("itnum %d temp %lf time %s new prob %lf %lf %lf len %d paths %d\n",
+    printf("itnum %d temp %lf time %s new prob %lf %lf %lf len %d paths %d low prob reads ",
            itnum, T,
            buffer, new_prob,
            cur_prob, best_prob,
            total_len, new_paths.size());
+    for (auto &e: zeros) {
+      printf("%d/%d ", e.first, e.second);
+    }
+    printf("\n");
 //    assert(total_len >= start_len);
   }
 
@@ -738,13 +746,16 @@ void PrepareReads(
   for (auto &e: paired_reads) {
     e.second.first->LoadAligments();
     e.second.first->PreprocessReads();
+    e.second.first->PrepareReadIndex();
     e.second.second->LoadAligments();
     e.second.second->PreprocessReads();
+    e.second.second->PrepareReadIndex();
   }
 
   for (auto &e: single_reads) {
     e.second->LoadAligments();
     e.second->PreprocessReads();
+    e.second->PrepareReadIndex();
   }
 }
 

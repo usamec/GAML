@@ -85,7 +85,6 @@ bool LocalChange2(vector<vector<int> >& new_paths, Graph& gr, int threshold,
           next = gr.nodes[cp.back()]->SampleNext();
           if (next == NULL) return false;
           fails++;
-          printf("fa %d\n", fails);
           if (next->s.length() > 2*elength && next->id != expect) {
             continue;
           }
@@ -98,7 +97,6 @@ bool LocalChange2(vector<vector<int> >& new_paths, Graph& gr, int threshold,
           break;
         }
         added_l += next->s.length();
-        printf("al %d\n", added_l);
         if (added_l > 200) {
           break;
         }
