@@ -20,9 +20,9 @@ void OutputPathsToConsole(const vector<vector<int>>& paths, Graph& gr, int thres
 }
 
 void OutputPathsToFile(const vector<vector<int>>& paths, Graph& gr, int kmer, int threshold, const string& filename) {
-  FILE *foc = fopen(("c"+filename).c_str(), "w");
+  FILE *foc = fopen((filename+".walks").c_str(), "w");
   fclose(foc);
-  FILE *fo = fopen(filename.c_str(), "w");
+  FILE *fo = fopen((filename+".fasta").c_str(), "w");
   fclose(fo);
   for (int i = 0; i < paths.size(); i++) {
     printf("(");
@@ -33,7 +33,7 @@ void OutputPathsToFile(const vector<vector<int>>& paths, Graph& gr, int kmer, in
     gr.OutputPathA(paths[i], kmer, filename.c_str(), i);
     gr.OutputPathC(paths[i], kmer, ("c"+filename).c_str(), i);
   }
-  fo = fopen(("s"+filename).c_str(), "w");
+  fo = fopen((filename+".onlylarge.fasta").c_str(), "w");
   fclose(fo);
   for (int i = 0; i < paths.size(); i++) {
     gr.OutputPathAT(paths[i], kmer, ("s"+filename).c_str(), i, threshold);

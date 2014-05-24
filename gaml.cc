@@ -42,12 +42,21 @@ int ExtractInt(const string& key, unordered_map<string, string>& cfg, int def) {
   return def;
 }
 
+string ExtractString(const string &key, unordered_map<string, string>& cfg, string def) {
+  if (cfg.count(key)) {
+    return cfg["key"];
+  }
+  return def;
+}
+
 struct AssemblySettings {
  public:
   int threshold;
+  string output_prefix;
   AssemblySettings() {}
   AssemblySettings(unordered_map<string, string>& configs) {
     threshold = ExtractInt("long_contig_threshold", configs, 500);
+    output_prefix = ExtractString("output_prefix", configs, "output");
   }
 };
 
@@ -71,7 +80,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     printf("%d/%d ", e.first, e.second);
   }
   printf("\n");
-  OutputPathsToFile(paths, gr, kmer, threshold, "output2l.fas");
+  OutputPathsToFile(paths, gr, kmer, threshold, settings.output_prefix);
   printf("\n");
 
   int itnum = 0;
@@ -229,7 +238,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
 //      rs1.SaveAligments();
 //      rs2.SaveAligments();
       printf("cur best %lf: ", best_prob);
-      OutputPathsToFile(best_paths, gr, kmer, threshold, "output2l.fas");
+      OutputPathsToFile(best_paths, gr, kmer, threshold, settings.output_prefix);
       printf("\n");
     }
     OutputPathsToConsole(new_paths, gr, threshold);
@@ -824,12 +833,9 @@ int main(int argc, char** argv) {
   PrepareReads(single_reads, paired_reads, pacbio_reads, gr);
   int longest_read = GetLongestRead(single_reads, paired_reads, pacbio_reads);
 
-  //TODO: large contig threshold
-  //TODO: output file
   //TODO: configure optimazation 
 
   vector<vector<int>> starting_paths;
-  //TODO: starting paths
   AssemblySettings settings(configs);
 
   if (configs.count("starting_assembly")) {
@@ -837,16 +843,12 @@ int main(int argc, char** argv) {
     ClipPaths(starting_paths, gr);
   } else {
     for (int i = 0; i < gr.nodes.size(); i+=2) {
-      if (gr.nodes[i]->s.length() > 500)
+      if (gr.nodes[i]->s.length() > settings.threshold)
         starting_paths.push_back(vector<int>({i}));
     }
   }
 
   Optimize(gr, pc, starting_paths, advice_paired, advice_pacbio, longest_read, settings); 
-
-//  OptimizeNew(gr, kmer, argv[2], argv[3]);
-/*  Optimize(gr, kmer, argv[2], argv[3], argv[4], argv[5], argv[6], 
-           argv[7], argv[8], argv[9], alpaths);*/
 }
 
 

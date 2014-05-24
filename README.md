@@ -67,3 +67,5 @@ Defaults to -0.7.
 connected enough. 
 - penalty_step=number Optional. Constant k in penalty for assemblies which are not connected
 enough.
+- output_prefix=filename Optional. Prefix for the output files. Defaults to "output".
+- starting_assembly=filename Optional. Fasta file with starting assembly.
