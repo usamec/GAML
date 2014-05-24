@@ -53,13 +53,21 @@ struct AssemblySettings {
  public:
   int threshold;
   string output_prefix;
+  int max_iterations;
+  bool do_postprocess;
   AssemblySettings() {}
   AssemblySettings(unordered_map<string, string>& configs) {
     threshold = ExtractInt("long_contig_threshold", configs, 500);
     output_prefix = ExtractString("output_prefix", configs, "output");
+    max_iterations = ExtractInt("max_iterations", configs, 50000);
+    if (configs.count("do_proprocess")) {
+      do_postprocess = true;
+    } else {
+      do_postprocess = false;
+      max_iterations = 1;
+    }
   }
 };
-
 
 void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     vector<pair<ReadSet*, ReadSet*>>& advice_paired,
@@ -117,9 +125,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
 
   map<int, int> last_rep;
 
-  while (true) {
-    if (itnum > 50000) break;
-
+  while (itnum <= settings.max_iterations) {
     // Start with checking repeated nodes and fix them
     
     vector<vector<int> > new_paths = paths;
@@ -128,11 +134,6 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int breakp = 30;
     int fixp = 1;
     int localp = 30;
-    if (itnum > 30000) {
-      localp = 100;
-      breakp = 50;
-      fixp = 5;
-    }
     int fixlenp = 0;
     int r = rand() % (extendp + breakp + fixp + localp + extendadvp + fixlenp);
     bool was_local = false;
@@ -140,38 +141,53 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int local_p, local_s, local_t;
     bool accept = false;
     bool force_best = false;
-
-    if (r < extendp) {
-      if (!ExtendPaths(new_paths, gr, threshold, prob_calc)) {
-        continue;
-      }
-    } else if (r < extendp + fixp) {
-      if (!FixSomeBigReps(new_paths, gr, threshold, false, prob_calc)) {
-        continue;
-      }
-    } else if (r < extendp + fixp + localp) {
-      if (!LocalChange(new_paths, gr, threshold, local_p, local_s, local_t, prob_calc)) {
-        continue;
-      }
-      if (local_p != -1) {
-        was_local = true;
-        printf("loc %d %d %d %d %d\n", new_paths[local_p][local_s], new_paths[local_p][local_t],
-               local_p, local_s, local_t);
-      }
-    } else if (r < extendp + fixp + localp + extendadvp) {
-/*        if (!ExtendPathsAdv(new_paths, gr, threshold, rs1, kmer, prob_calc)) {
-        continue;
-      }*/
-      continue;
-    } else if (r < extendp + fixp + localp + extendadvp + fixlenp) {
-      if (!FixGapLength(new_paths, prob_calc)) {
-        continue;
-      }
+    
+    if (settings.do_postprocess) {
+      FixBigReps(new_paths, gr, threshold, true, prob_calc);
     } else {
-      if (!BreakPath(new_paths, gr, threshold)) {
+
+      if (r < extendp) {
+        if (!ExtendPaths(new_paths, gr, threshold, prob_calc)) {
+          continue;
+        }
+      } else if (r < extendp + fixp) {
+        if (!FixSomeBigReps(new_paths, gr, threshold, false, prob_calc)) {
+          continue;
+        }
+      } else if (r < extendp + fixp + localp) {
+        if (!LocalChange(new_paths, gr, threshold, local_p, local_s, local_t, prob_calc)) {
+          continue;
+        }
+        if (local_p != -1) {
+          was_local = true;
+          printf("loc %d %d %d %d %d\n", new_paths[local_p][local_s], new_paths[local_p][local_t],
+                 local_p, local_s, local_t);
+        }
+      } else if (r < extendp + fixp + localp + extendadvp) {
+        int r2 = rand() % (advice_pacbio.size() + advice_paired.size());
+        if (r2 < advice_pacbio.size()) {
+          PacbioReadSet* advice_set = advice_pacbio[rand()%advice_pacbio.size()];
+          if (!ExtendPathsAdv(new_paths, gr, threshold, *advice_set, kmer, prob_calc)) {
+            continue;
+          }
+        } else {
+          pair<ReadSet*, ReadSet*> advice_set = advice_paired[rand()%advice_paired.size()];
+          if (!ExtendPathsAdv(new_paths, gr, threshold, *advice_set.first, 
+                              *advice_set.second, kmer, prob_calc)) {
+            continue;
+          }          
+        }
         continue;
+      } else if (r < extendp + fixp + localp + extendadvp + fixlenp) {
+        if (!FixGapLength(new_paths, prob_calc)) {
+          continue;
+        }
+      } else {
+        if (!BreakPath(new_paths, gr, threshold)) {
+          continue;
+        }
+        was_break = true;
       }
-      was_break = true;
     }
     // Rep stats
     {
@@ -235,8 +251,6 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     else 
       T = 0.008 / log(itnum + 1);
     if (itnum % 100 == 0) {
-//      rs1.SaveAligments();
-//      rs2.SaveAligments();
       printf("cur best %lf: ", best_prob);
       OutputPathsToFile(best_paths, gr, kmer, threshold, settings.output_prefix);
       printf("\n");
@@ -246,11 +260,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
 
     double new_prob = prob_calc.CalcProb(new_paths, zeros, total_len);
 
-/*    double new_prob = CalcScoreForPaths(gr, new_paths, kmer, rs1, rs2, insert_mean, insert_std,
-        zero_reads, total_len, true) + 
-                      CalcScoreForPaths(gr, new_paths, kmer, rs21, rs22, insert_mean2, insert_std2,
-        zero_reads2, total_len, true, 0.0003);*/
-    if (new_prob > cur_prob) {
+    if (new_prob > cur_prob || settings.do_postprocess) {
       if (was_local) {
         printf("local save\n");
         vector<int> pp;
@@ -302,9 +312,10 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
       printf("%d/%d ", e.first, e.second);
     }
     printf("\n");
-//    assert(total_len >= start_len);
   }
-
+  printf("cur best %lf: ", best_prob);
+  OutputPathsToFile(best_paths, gr, kmer, threshold, settings.output_prefix);
+  printf("\n");
 }
 
 struct Pos {

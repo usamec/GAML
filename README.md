@@ -69,3 +69,5 @@ connected enough.
 enough.
 - output_prefix=filename Optional. Prefix for the output files. Defaults to "output".
 - starting_assembly=filename Optional. Fasta file with starting assembly.
+- max_iterations=number Optional. Maximum number of iterations for simulated annealing.
+Defaults to 50000.
