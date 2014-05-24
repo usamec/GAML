@@ -55,6 +55,13 @@ struct AssemblySettings {
   string output_prefix;
   int max_iterations;
   bool do_postprocess;
+  int extendadvp;
+  int extendp;
+  int breakp;
+  int fixp;
+  int localp;
+  int fixlenp;
+  double t0;
   AssemblySettings() {}
   AssemblySettings(unordered_map<string, string>& configs) {
     threshold = ExtractInt("long_contig_threshold", configs, 500);
@@ -66,6 +73,13 @@ struct AssemblySettings {
       do_postprocess = false;
       max_iterations = 1;
     }
+    extendadvp = ExtractInt("join_by_advice_p", configs, 20);
+    extendp = ExtractInt("extend_p", configs, 10);
+    breakp = ExtractInt("disconnect_p", configs, 10);
+    fixp = ExtractInt("interchange_p", configs, 1);
+    localp = ExtractInt("local_p", configs, 20);
+    fixlenp = ExtractInt("fixlen_p", configs, 1);
+    t0 = ExtractDouble("t0", configs, 0.008);
   }
 };
 
@@ -129,12 +143,12 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     // Start with checking repeated nodes and fix them
     
     vector<vector<int> > new_paths = paths;
-    int extendadvp = 20;
-    int extendp = 10;
-    int breakp = 30;
-    int fixp = 1;
-    int localp = 30;
-    int fixlenp = 0;
+    int extendadvp = settings.extendadvp;
+    int extendp = settings.extendp;
+    int breakp = settings.breakp;
+    int fixp = settings.fixp;
+    int localp = settings.localp;
+    int fixlenp = settings.fixlenp;
     int r = rand() % (extendp + breakp + fixp + localp + extendadvp + fixlenp);
     bool was_local = false;
     bool was_break = false;
@@ -246,10 +260,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
       new_paths.erase(new_paths.begin() + clean);
     }
     itnum++;
-    if (itnum > 500)
-      T = 0.012 / log(itnum - 499);
-    else 
-      T = 0.008 / log(itnum + 1);
+    T = settings.t0 / log(itnum + 1);
     if (itnum % 100 == 0) {
       printf("cur best %lf: ", best_prob);
       OutputPathsToFile(best_paths, gr, kmer, threshold, settings.output_prefix);

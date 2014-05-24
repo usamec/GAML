@@ -41,6 +41,23 @@ Global configuration
 - graph=pathtograph     Required. Run Velvet on your reads and set this to
 LastGraph in your Velvet output directory.
 - threshold=number      Threshold for the length of long contigs. Default 500.
+- output_prefix=filename Optional. Prefix for the output files. Defaults to "output".
+- starting_assembly=filename Optional. Fasta file with starting assembly.
+- max_iterations=number Optional. Maximum number of iterations for simulated annealing.
+Defaults to 50000.
+- t0=number             Optional. Initial temperature. Defaults to 0.008.
+
+Moves configuration
+-------------------
+All of these settings should be integers. We pick a move by
+selecting a random integer in range 1 to sum of integers below and pick
+a move from particular bucket.
+
+- join_by_advice_p=number
+- extend_p=number
+- disconnect_p=number
+- interchange_p=number
+- local_p=number
 
 Read set configuration
 ======================
@@ -67,7 +84,4 @@ Defaults to -0.7.
 connected enough. 
 - penalty_step=number Optional. Constant k in penalty for assemblies which are not connected
 enough.
-- output_prefix=filename Optional. Prefix for the output files. Defaults to "output".
-- starting_assembly=filename Optional. Fasta file with starting assembly.
-- max_iterations=number Optional. Maximum number of iterations for simulated annealing.
-Defaults to 50000.
+
