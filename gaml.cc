@@ -652,10 +652,10 @@ void PrepareReadSetFromConfig(
         continue;
       }
       string filename = e.second["filename"];
-      double mismatch_prob = ExtractDouble("mismatch_prob", e.second, 0.05);
+      double mismatch_prob = ExtractDouble("mismatch_prob", e.second, 0.01);
       double match_prob = 1.0 - 4*mismatch_prob;
       double min_prob = ExtractDouble("min_prob_per_base", e.second, -0.7);
-      double min_prob_start = ExtractDouble("min_prob", e.second, -10);
+      double min_prob_start = ExtractDouble("min_prob_start", e.second, -10);
 
       double penalty_constant = ExtractDouble("penalty_constant", e.second, 0);
       double step = ExtractDouble("penalty_step", e.second, 50);
@@ -693,10 +693,10 @@ void PrepareReadSetFromConfig(
       }
       double insert_mean = StringToDouble(e.second["insert_mean"]);
       double insert_std = StringToDouble(e.second["insert_std"]);
-      double mismatch_prob = ExtractDouble("mismatch_prob", e.second, 0.05);
+      double mismatch_prob = ExtractDouble("mismatch_prob", e.second, 0.01);
       double match_prob = 1.0 - 4*mismatch_prob;
       double min_prob = ExtractDouble("min_prob_pre_base", e.second, -0.7);
-      double min_prob_start = ExtractDouble("min_prob", e.second, -10);
+      double min_prob_start = ExtractDouble("min_prob_start", e.second, -10);
 
       double penalty_constant = ExtractDouble("penalty_constant", e.second, 0);
       // TODO: fix this
