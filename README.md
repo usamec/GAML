@@ -1,5 +1,15 @@
-Syntax
-======
+Requirements
+============
+- Reasonable new gcc
+- Boost libraries
+
+Compiling GAML
+==============
+cmake .
+make
+
+Running GAML
+============
 
 ./gaml <config file>
 
