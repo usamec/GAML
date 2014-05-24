@@ -46,6 +46,7 @@ LastGraph in your Velvet output directory.
 - max_iterations=number Optional. Maximum number of iterations for simulated annealing.
 Defaults to 50000.
 - t0=number             Optional. Initial temperature. Defaults to 0.008.
+- do_proprocess=whatever If set, we do only postprocessing.
 
 Moves configuration
 -------------------
