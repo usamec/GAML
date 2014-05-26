@@ -48,6 +48,7 @@ class ProbCalculator {
   double CalcProb(vector<vector<int> >& paths,
                   vector<pair<int, int>>& zeros,
                   int& total_len) {
+    zeros.clear();
     double prob = 0;
     int zero;
     for (auto &e: single_reads) {

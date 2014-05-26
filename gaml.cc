@@ -181,7 +181,6 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
                  local_p, local_s, local_t);
         }
       } else if (r < extendp + fixp + localp + extendadvp) {
-        printf("adv %d %d\n", advice_pacbio.size(), advice_paired.size());
         int r2 = rand() % (advice_pacbio.size() + advice_paired.size());
         if (r2 < advice_pacbio.size()) {
           PacbioReadSet* advice_set = advice_pacbio[rand()%advice_pacbio.size()];
