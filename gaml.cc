@@ -69,9 +69,9 @@ struct AssemblySettings {
     max_iterations = ExtractInt("max_iterations", configs, 50000);
     if (configs.count("do_proprocess")) {
       do_postprocess = true;
+      max_iterations = 1;
     } else {
       do_postprocess = false;
-      max_iterations = 1;
     }
     extendadvp = ExtractInt("join_by_advice_p", configs, 20);
     extendp = ExtractInt("extend_p", configs, 10);
@@ -149,7 +149,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int fixp = settings.fixp;
     int localp = settings.localp;
     int fixlenp = settings.fixlenp;
-    if (advice_pacbio.size() + advice_paired.size()) {
+    if (advice_pacbio.size() + advice_paired.size() == 0) {
       extendadvp = 0;
     }
     int r = rand() % (extendp + breakp + fixp + localp + extendadvp + fixlenp);
@@ -181,6 +181,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
                  local_p, local_s, local_t);
         }
       } else if (r < extendp + fixp + localp + extendadvp) {
+        printf("adv %d %d\n", advice_pacbio.size(), advice_paired.size());
         int r2 = rand() % (advice_pacbio.size() + advice_paired.size());
         if (r2 < advice_pacbio.size()) {
           PacbioReadSet* advice_set = advice_pacbio[rand()%advice_pacbio.size()];
