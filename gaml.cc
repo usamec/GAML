@@ -149,6 +149,9 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int fixp = settings.fixp;
     int localp = settings.localp;
     int fixlenp = settings.fixlenp;
+    if (advice_pacbio.size() + advice_paired.size()) {
+      extendadvp = 0;
+    }
     int r = rand() % (extendp + breakp + fixp + localp + extendadvp + fixlenp);
     bool was_local = false;
     bool was_break = false;

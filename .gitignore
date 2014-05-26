@@ -6,3 +6,5 @@ Makefile
 CMakeCache.txt
 CMakeFiles/
 *.fas
+*.fasta
+rs*
