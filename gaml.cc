@@ -757,7 +757,7 @@ void PrepareReadSetFromConfig(
 }
 
 template<class T, class TT>
-void GetAdvice(const vector<pair<T, TT>>& input, vector<TT> output) {
+void GetAdvice(const vector<pair<T, TT>>& input, vector<TT>& output) {
   for (auto &e: input) {
     if (e.first.advice) {
       output.push_back(e.second);
@@ -854,7 +854,7 @@ int main(int argc, char** argv) {
   vector<PacbioReadSet*> advice_pacbio;
   GetAdvice(paired_reads, advice_paired);
   GetAdvice(pacbio_reads, advice_pacbio);
- 
+
   PrepareReads(single_reads, paired_reads, pacbio_reads, gr);
   int longest_read = GetLongestRead(single_reads, paired_reads, pacbio_reads);
 
