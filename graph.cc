@@ -1255,7 +1255,7 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
     }
   }
   if (no_cov_penalty > 0) {
-    printf("bad %d %d %d\n", bad_bases, bad_gaps, (int)bc.size());
+    printf("bad (single) %d %d %d\n", bad_bases, bad_gaps, (int)bc.size());
   }
 //  int zero_reads;
   double total_prob = GetTotalProb(read_probs, total_len1, zero_reads, 
@@ -1273,7 +1273,7 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
                          double exp_cov_move, bool use_all_to_cov,
                          double min_prob_per_base, double min_prob_start) {
 //  printf("calc score\n");  
-  printf("ins m %lf\n", insert_mean);
+  printf("ins m %lf %lf %lf\n", insert_mean, no_cov_penalty, exp_cov_move);
   assert(read_set1.GetNumberOfReads() == read_set2.GetNumberOfReads());
   int total_len1 = 0, total_len2 = 0;
   vector<double> read_probs(read_set1.GetNumberOfReads());
@@ -1413,7 +1413,7 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
     last_event_type = events[i].second;
   }
   if (no_cov_penalty > 0) {
-    printf("bad %d %d %d\n", bad_bases, bad_gaps, (int)bc.size());
+    printf("bad (%lf) %d %d %d\n", insert_mean, bad_bases, bad_gaps, (int)bc.size());
   }
 //  int zero_reads;
   double total_prob = GetTotalProb(read_probs, total_len1, zero_reads, min_prob_per_base,
