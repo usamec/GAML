@@ -194,7 +194,6 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
             continue;
           }          
         }
-        continue;
       } else if (r < extendp + fixp + localp + extendadvp + fixlenp) {
         if (!FixGapLength(new_paths, prob_calc)) {
           continue;
