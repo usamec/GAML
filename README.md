@@ -20,7 +20,9 @@ make
 Running GAML
 ============
 
+```
 ./gaml <config file>
+```
 
 
 Config file outline (check example.cfg):
