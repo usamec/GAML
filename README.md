@@ -4,16 +4,18 @@ Requirements
 - Boost libraries
 - Velvet
 
-Parameters forVelvet
-======================
+Parameters for Velvet
+=====================
 
 In our experiments we used only -cov_cutoff setting. Either set it to auto or
 something reasonably small. We recommend you to do the same.
 
 Compiling GAML
 ==============
+```
 cmake .
 make
+```
 
 Running GAML
 ============
@@ -26,6 +28,7 @@ Config file outline (check example.cfg):
 
 Global configuration
 
+```
 [readset1]
 readset1 configuration
 
@@ -33,7 +36,7 @@ readset1 configuration
 readset2 configuration
 
 ...
-
+```
 
 Global configuration
 ====================
