@@ -933,6 +933,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     reverse(path.begin(), path.end());
   }
   paths.erase(paths.begin()+rp);
+
   unordered_map<int, vector<int> > read_poses;
   unordered_map<int, vector<int> > read_poses_1;
   for (int i = 0; i < gr.nodes.size(); i++) {
@@ -973,11 +974,28 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
       }
     } 
   }
+
+  if (cands.empty()) {
+    allow_gaps = true;
+    for (int i = 0; i < rs1.GetNumberOfReads(); i++) {
+      if (positions1[i].empty()) continue;
+      if (positions1[i][0].second.second != 0) continue;
+      for (int j = 0; j < read_poses_1[i].size(); j++) {
+        if (path_v.count(read_poses_1[i][j]) && only_out) continue;
+        if (gr.reach_limit_[path.back()].count(read_poses_1[i][j]) != 0 || allow_gaps) {
+          cands.push_back(read_poses_1[i][j]);
+        }
+      } 
+    }
+  }
+
   unordered_map<int, vector<int> > path_ends;
   for (int i = 0; i < paths.size(); i++) {
     path_ends[paths[i][0]].push_back(i+1);
     path_ends[paths[i].back()^1].push_back(-(i+1));
   }
+
+  printf("cands len %d\n", cands.size());
 
   if (cands.empty()) return false;
   int next = cands[rand()%cands.size()];

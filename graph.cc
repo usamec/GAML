@@ -1338,6 +1338,8 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
   }
 //  vector<int> dists;
   for (int i = 0; i < read_set1.GetNumberOfReads(); i++) {
+    double threshold = exp(min_prob_start + 
+                           min_prob_per_base*(read_set1.GetReadLen(i)+read_set2.GetReadLen(i)));
     for (auto &x: positions1[i]) {
       double p1 = read_set1.mismatch_probs_[x.second.first] *
                   read_set1.match_probs_[read_set1.GetReadLen(i) - x.second.first];
@@ -1364,7 +1366,7 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
           insprob = GetInsertProbability(dist, insert_mean, insert_std);
         }
 //        dists.push_back(dist);
-        if (p1*p2*insprob > kThresholdProb) {
+        if (p1*p2*insprob > threshold) {
           events.push_back(make_pair(max(x.first, y.first), 3));
           if (use_all_to_cov) {
             events.push_back(make_pair(min(x.first, y.first), 3));

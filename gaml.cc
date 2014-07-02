@@ -73,11 +73,11 @@ struct AssemblySettings {
     } else {
       do_postprocess = false;
     }
-    extendadvp = ExtractInt("join_by_advice_p", configs, 20);
-    extendp = ExtractInt("extend_p", configs, 10);
-    breakp = ExtractInt("disconnect_p", configs, 10);
+    extendadvp = ExtractInt("join_by_advice_p", configs, 25);
+    extendp = ExtractInt("extend_p", configs, 5);
+    breakp = ExtractInt("disconnect_p", configs, 60);
     fixp = ExtractInt("interchange_p", configs, 1);
-    localp = ExtractInt("local_p", configs, 20);
+    localp = ExtractInt("local_p", configs, 60);
     fixlenp = ExtractInt("fixlen_p", configs, 1);
     t0 = ExtractDouble("t0", configs, 0.008);
   }
@@ -818,7 +818,7 @@ int GetLongestRead(
 
 int main(int argc, char** argv) {
   if (argc < 2) {
-    printf("Missing config file!\nSyntax:\n./lama <config file>\n");
+    printf("Missing config file!\nSyntax:\n./gaml <config file>\n");
     return 1;
   }
 
