@@ -89,37 +89,6 @@ class ProbCalculator {
   vector<pair<PairedReadConfig, pair<ReadSet*, ReadSet*>>> paired_reads;
   vector<pair<SingleReadConfig, PacbioReadSet*>> pacbio_reads;
   Graph& gr;
-
-/*  double CalcProb(vector<vector<int> >& paths,
-                  int& zero1, int& zero2, int& total_len) {
-    return CalcScoreForPacbio(
-        gr_, paths, kmer_, rs11_,
-        zero1, total_len, use_caching_, no_cov_1_,
-        exp_cov_move_1_)*0.01 +
-        CalcScoreForPaths(
-        gr_, paths, kmer_, rs21_, rs22_,
-        insert_mean2_, insert_std2_, zero2, total_len, use_caching_, no_cov_2_,
-        exp_cov_move_2_, true)+
-        CalcScoreForPaths(
-        gr_, paths, kmer_, rs31_, rs32_,
-        insert_mean3_, insert_std3_, zero3, total_len, use_caching_, 0,
-        500, true);
-  }
-  double CalcProb(vector<vector<int> >& paths,
-                  int& zero1, int& zero2, int& zero3, int& total_len) {
-    return CalcScoreForPacbio(
-        gr_, paths, kmer_, rs11_,
-        zero1, total_len, use_caching_, no_cov_1_,
-        exp_cov_move_1_)*0.01 +
-        CalcScoreForPaths(
-        gr_, paths, kmer_, rs21_, rs22_,
-        insert_mean2_, insert_std2_, zero2, total_len, use_caching_, no_cov_2_,
-        exp_cov_move_2_, true)+
-        CalcScoreForPaths(
-        gr_, paths, kmer_, rs31_, rs32_,
-        insert_mean3_, insert_std3_, zero3, total_len, use_caching_, 0,
-        500, true);
-  }*/
 };
 
 

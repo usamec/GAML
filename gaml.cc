@@ -83,6 +83,7 @@ struct AssemblySettings {
   }
 };
 
+// Core of optimalization procedure
 void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     vector<pair<ReadSet*, ReadSet*>>& advice_paired,
     vector<PacbioReadSet*>& advice_pacbio,
@@ -158,7 +159,8 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int local_p, local_s, local_t;
     bool accept = false;
     bool force_best = false;
-    
+   
+    // Pick move and do it
     if (settings.do_postprocess) {
       FixBigReps(new_paths, gr, threshold, true, prob_calc);
     } else {
@@ -233,6 +235,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
       if (rep) printf("\n");
     }
 
+    // Remove lone repeated nodes
     while (true) {
       int clean = -1;
       unordered_map<int, vector<int> > locs;
@@ -261,6 +264,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
       printf("clean %d\n", clean);
       new_paths.erase(new_paths.begin() + clean);
     }
+
     itnum++;
     T = settings.t0 / log(itnum + 1);
     if (itnum % 100 == 0) {
@@ -271,6 +275,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     OutputPathsToConsole(new_paths, gr, threshold);
     printf("\n");
 
+    // Evaluate probability
     double new_prob = prob_calc.CalcProb(new_paths, zeros, total_len);
 
     if (new_prob > cur_prob || settings.do_postprocess) {
@@ -315,6 +320,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     time (&rawtime);
     timeinfo = localtime (&rawtime);
 
+    // Output debug info
     strftime (buffer,80,"%H:%M:%S",timeinfo);
     printf("itnum %d temp %lf time %s new prob %lf %lf %lf len %d paths %d low prob reads ",
            itnum, T,
@@ -352,6 +358,7 @@ bool BaseEq(char a, char b) {
   return false;
 }
 
+// Some procedures for finding walks if we are given starting assembly
 bool AlignContig(const Graph& gr, int start, int target, 
                  const string& contig, vector<int>& path) {
   deque<Pos> fr;
@@ -415,6 +422,7 @@ bool AlignContig(const Graph& gr, int start, int target,
   return false;
 }
 
+// Some procedures for finding walks if we are given starting assembly
 void AligmentToPath(
     const Graph&gr, const vector<pair<int, int>>& als, vector<vector<int>>& paths,
     const string& contig) {
@@ -470,7 +478,7 @@ void AligmentToPath(
   paths.push_back(cur_path);
 }
 
-
+// Some procedures for finding walks if we are given starting assembly
 void GetPaths(const Graph&gr, const string& contigs, vector<vector<int>>& paths) {
   unordered_map<string, string> ctgs;
   string buf = "";

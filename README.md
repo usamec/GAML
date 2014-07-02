@@ -91,3 +91,12 @@ connected enough.
 - penalty_step=number Optional. Constant k in penalty for assemblies which are not connected
 enough.
 
+Source code organization
+===================
+
+- gaml.cc - main file, contains optimization routine and functions for loading configuration
+- moves.cc, moves.h - contain source code for all moves
+- graph.cc, graph.h - contain code for manipulation with assembly graph and calculating
+likelihood for one read set
+- input\_output.cc, input\_output.h - routines for assembly output and debug output
+- prob\_calculator.h - class for calculating whole assembly likelihood
