@@ -3,6 +3,8 @@ Requirements
 - Reasonable new gcc
 - Boost libraries
 - Velvet
+- Bowtie2
+- Blasr (for Pacbio reads)
 
 Parameters for Velvet
 =====================
