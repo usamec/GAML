@@ -317,6 +317,24 @@ class ReadIndexTrivial {
   char trans[256];
 };
 
+class ReadIndexMinHash {
+ public:
+  ReadIndexMinHash() {
+    trans['A'] = 1;
+    trans['T'] = 2;
+    trans['C'] = 3;
+    trans['G'] = 0;
+  }
+  void AddRead(const string& seq, int read_id);
+  void GetReadCands(const string& seq, unordered_set<int>& read_cands);
+  void PrintSizeInfo();
+  unsigned long long Hash(unsigned long long x);
+  unsigned long long GetMinHashForSeq(const string& seq);
+  unordered_map<unsigned long long, vector<int> > read_index_;
+  char trans[256];
+  int read_len;
+};
+
 class ReadSet {
  public:
   // TODO: Calculate readlens from reads_file not from aligments
@@ -391,7 +409,7 @@ class ReadSet {
   string filename_;
   bool load_success_;
   vector<vector<pair<int, pair<int, int> > > > positions_;
-  ReadIndexTrivial read_index_;
+  ReadIndexMinHash read_index_;
 };
 
 class PacbioReadSet {

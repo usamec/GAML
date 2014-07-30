@@ -644,6 +644,7 @@ void ReadSet::PrecomputeAligmentForSubpaths(
     fprintf(f, "\n");
     read_index_.GetReadCands(seq, read_cands);
   }
+  printf("rc size %d\n", read_cands.size());
   fclose(f);
   ofstream of(tmpname4, ios_base::out | ios_base::trunc);
   for (auto &e: read_cands) {
@@ -860,6 +861,57 @@ void ReadIndexTrivial::PrintSizeInfo() {
     ss += 1 + e.second.size();
   }
   printf("read index done, size %lld, %lld\n", read_index_.size(), ss);
+}
+
+void ReadIndexMinHash::PrintSizeInfo() {
+  long long ss = 0;
+  for (auto &e: read_index_) {
+    ss += 1 + e.second.size();
+  }
+  printf("read index done, size %lld, %lld\n", read_index_.size(), ss);
+}
+
+unsigned long long ReadIndexMinHash::Hash(unsigned long long x) {
+  return (x << 7) ^ (x >> 5) ^ (x & 0xffaaffaaffaaffaaULL) ^ (x >> 23) ^ (x << 23);
+}
+
+unsigned long long ReadIndexMinHash::GetMinHashForSeq(const string& seq) {
+  unsigned long long curhash = 0;
+  unsigned long long minhash = 0;
+  for (int i = 0; i < kIndexKmer; i++) {
+    curhash <<= 2;
+    curhash += trans[seq[i]];
+  }
+  minhash = max(minhash, Hash(curhash));
+  for (int i = kIndexKmer; i < seq.length(); i++) {
+    curhash <<= 2;
+    curhash &= (1ll << (2*kIndexKmer)) - 1;
+    curhash += trans[seq[i]];
+    minhash = max(minhash, Hash(curhash));
+  }  
+  return minhash;
+}
+
+void ReadIndexMinHash::AddRead(const string& seq, int read_id) {
+  unsigned long long minhash = GetMinHashForSeq(seq);
+  read_index_[minhash].push_back(read_id);
+  read_len = seq.length();
+}
+
+void ReadIndexMinHash::GetReadCands(const string& seq, unordered_set<int>& read_cands) {
+  // Very stupid version 
+  for (int i = 0; i < seq.length() - read_len + 1; i++) {
+    string s = seq.substr(i, read_len);
+    string sr = ReverseSeq(s);
+    unsigned long long mh1 = GetMinHashForSeq(s);
+    unsigned long long mh2 = GetMinHashForSeq(sr);
+    if (read_index_.count(mh1)) {
+      read_cands.insert(read_index_[mh1].begin(), read_index_[mh1].end());
+    }
+    if (read_index_.count(mh2)) {
+      read_cands.insert(read_index_[mh2].begin(), read_index_[mh2].end());
+    }
+  }
 }
 
 void ReadSet::PrepareReadIndex() {
