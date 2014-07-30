@@ -916,6 +916,11 @@ void ReadSet::PrepareReadIndex() {
     getline(ifs, l);
     getline(ifs, l);
   }
+  long long ss = 0;
+  for (auto &e: read_index_) {
+    ss += 1 + e.second.size();
+  }
+  printf("read index done, size %lld, %lld\n", read_index_.size(), ss);
 }
 
 void ReadSet::PreprocessReads() {
