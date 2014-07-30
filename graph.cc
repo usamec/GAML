@@ -373,53 +373,8 @@ vector<vector<pair<int, pair<int, int> > > >& ReadSet::GetPositionsSlow(
   string reads_filename = filename_;
 
   printf("slow files %s %s %s %s\n", tmpname1, tmpname2, tmpname3, tmpname4);
-  char trans[256];
-  trans['A'] = 1;
-  trans['T'] = 2;
-  trans['C'] = 3;
-  trans['G'] = 0;
   unordered_set<int> read_cands;
-  unsigned long long curhash = 0; 
-  for (int i = 0; i < kIndexKmer; i++) {
-    curhash <<= 2;
-    curhash += trans[seq[i]];
-  }
-  if (read_index_.count(curhash)) {
-    for (int j = 0; j < read_index_[curhash].size(); j++) {
-      read_cands.insert(read_index_[curhash][j]);  
-    }
-  }
-  for (int i = kIndexKmer; i < seq.size(); i++) {
-    curhash <<= 2;
-    curhash &= (1ll << (2*kIndexKmer)) - 1;
-    curhash += trans[seq[i]];
-    if (read_index_.count(curhash)) {
-      for (int j = 0; j < read_index_[curhash].size(); j++) {
-        read_cands.insert(read_index_[curhash][j]);  
-      }
-    }
-  }
-  string seqr = ReverseSeq(seq);
-  curhash = 0; 
-  for (int i = 0; i < kIndexKmer; i++) {
-    curhash <<= 2;
-    curhash += trans[seqr[i]];
-  }
-  if (read_index_.count(curhash)) {
-    for (int j = 0; j < read_index_[curhash].size(); j++) {
-      read_cands.insert(read_index_[curhash][j]);  
-    }
-  }
-  for (int i = kIndexKmer; i < seq.size(); i++) {
-    curhash <<= 2;
-    curhash &= (1ll << (2*kIndexKmer)) - 1;
-    curhash += trans[seqr[i]];
-    if (read_index_.count(curhash)) {
-      for (int j = 0; j < read_index_[curhash].size(); j++) {
-        read_cands.insert(read_index_[curhash][j]);  
-      }
-    }
-  }
+  read_index_.GetReadCands(seq, read_cands);
 
   ofstream of(tmpname4, ios_base::out | ios_base::trunc);
   for (auto &e: read_cands) {
@@ -671,11 +626,6 @@ void ReadSet::PrecomputeAligmentForSubpaths(
       printf("%d ", subpaths[i][j]);
     printf("\n");
   }
-  char trans[256];
-  trans['A'] = 1;
-  trans['T'] = 2;
-  trans['C'] = 3;
-  trans['G'] = 0;
   unordered_set<int> read_cands;
   FILE *f = fopen(tmpname1, "w");
   for (int i = 0; i < subpaths.size(); i++) {
@@ -692,47 +642,7 @@ void ReadSet::PrecomputeAligmentForSubpaths(
       seq += gr.nodes[subpaths[i][j]]->s;
     }
     fprintf(f, "\n");
-    unsigned long long curhash = 0; 
-    for (int i = 0; i < kIndexKmer; i++) {
-      curhash <<= 2;
-      curhash += trans[seq[i]];
-    }
-    if (read_index_.count(curhash)) {
-      for (int j = 0; j < read_index_[curhash].size(); j++) {
-        read_cands.insert(read_index_[curhash][j]);  
-      }
-    }
-    for (int i = kIndexKmer; i < seq.size(); i++) {
-      curhash <<= 2;
-      curhash &= (1ll << (2*kIndexKmer)) - 1;
-      curhash += trans[seq[i]];
-      if (read_index_.count(curhash)) {
-        for (int j = 0; j < read_index_[curhash].size(); j++) {
-          read_cands.insert(read_index_[curhash][j]);  
-        }
-      }
-    }
-    string seqr = ReverseSeq(seq);
-    curhash = 0; 
-    for (int i = 0; i < kIndexKmer; i++) {
-      curhash <<= 2;
-      curhash += trans[seqr[i]];
-    }
-    if (read_index_.count(curhash)) {
-      for (int j = 0; j < read_index_[curhash].size(); j++) {
-        read_cands.insert(read_index_[curhash][j]);  
-      }
-    }
-    for (int i = kIndexKmer; i < seq.size(); i++) {
-      curhash <<= 2;
-      curhash &= (1ll << (2*kIndexKmer)) - 1;
-      curhash += trans[seqr[i]];
-      if (read_index_.count(curhash)) {
-        for (int j = 0; j < read_index_[curhash].size(); j++) {
-          read_cands.insert(read_index_[curhash][j]);  
-        }
-      }
-    }
+    read_index_.GetReadCands(seq, read_cands);
   }
   fclose(f);
   ofstream of(tmpname4, ios_base::out | ios_base::trunc);
@@ -766,6 +676,7 @@ void ReadSet::PrecomputeAligmentForSubpaths(
   ifstream fi(tmpname3);
   assert(fi);
   string l;
+  int n_als = 0;
   while (getline(fi, l)) {
     vector<string> parts;
     split(parts, l, is_any_of("\t"));
@@ -793,11 +704,12 @@ void ReadSet::PrecomputeAligmentForSubpaths(
       int pos = StringToInt(parts[3]);
       aligment_cache_[subpath].push_back(Aligment(pos, edit_dist, read_id, orientation));
     }
+    n_als++;
   }
   for (auto& s: subpaths) {
     sort(aligment_cache_[s].begin(), aligment_cache_[s].end());
   }
-  printf("precomp done\n");
+  printf("precomp done %d\n", n_als);
   SaveAligments();
   remove(tmpname1);
   remove(tmpname2);
@@ -883,12 +795,74 @@ void PacbioReadSet::NormalizeCache(const Graph& gr) {
   printf("normalize done\n");
 }
 
+void ReadIndexTrivial::AddRead(const string& seq, int read_id) {
+  unsigned long long curhash = 0; 
+  for (int i = 0; i < kIndexKmer; i++) {
+    curhash <<= 2;
+    curhash += trans[seq[i]];
+  }
+  read_index_[curhash].push_back(read_id);
+  for (int i = kIndexKmer; i < seq.length(); i++) {
+    curhash <<= 2;
+    curhash &= (1ll << (2*kIndexKmer)) - 1;
+    curhash += trans[seq[i]];
+    read_index_[curhash].push_back(read_id);
+  }    
+}
+
+void ReadIndexTrivial::GetReadCands(const string& seq, unordered_set<int>& read_cands) {
+  unsigned long long curhash = 0; 
+  for (int i = 0; i < kIndexKmer; i++) {
+    curhash <<= 2;
+    curhash += trans[seq[i]];
+  }
+  if (read_index_.count(curhash)) {
+    for (int j = 0; j < read_index_[curhash].size(); j++) {
+      read_cands.insert(read_index_[curhash][j]);  
+    }
+  }
+  for (int i = kIndexKmer; i < seq.size(); i++) {
+    curhash <<= 2;
+    curhash &= (1ll << (2*kIndexKmer)) - 1;
+    curhash += trans[seq[i]];
+    if (read_index_.count(curhash)) {
+      for (int j = 0; j < read_index_[curhash].size(); j++) {
+        read_cands.insert(read_index_[curhash][j]);  
+      }
+    }
+  }
+  string seqr = ReverseSeq(seq);
+  curhash = 0; 
+  for (int i = 0; i < kIndexKmer; i++) {
+    curhash <<= 2;
+    curhash += trans[seqr[i]];
+  }
+  if (read_index_.count(curhash)) {
+    for (int j = 0; j < read_index_[curhash].size(); j++) {
+      read_cands.insert(read_index_[curhash][j]);  
+    }
+  }
+  for (int i = kIndexKmer; i < seq.size(); i++) {
+    curhash <<= 2;
+    curhash &= (1ll << (2*kIndexKmer)) - 1;
+    curhash += trans[seqr[i]];
+    if (read_index_.count(curhash)) {
+      for (int j = 0; j < read_index_[curhash].size(); j++) {
+        read_cands.insert(read_index_[curhash][j]);  
+      }
+    }
+  }
+}
+
+void ReadIndexTrivial::PrintSizeInfo() {
+  long long ss = 0;
+  for (auto &e: read_index_) {
+    ss += 1 + e.second.size();
+  }
+  printf("read index done, size %lld, %lld\n", read_index_.size(), ss);
+}
+
 void ReadSet::PrepareReadIndex() {
-  char trans[256];
-  trans['A'] = 1;
-  trans['T'] = 2;
-  trans['C'] = 3;
-  trans['G'] = 0;
   printf("read index prepare\n");
   ifstream ifs(filename_);
   string l;
@@ -901,26 +875,11 @@ void ReadSet::PrepareReadIndex() {
     string seq;
     getline(ifs, seq);
     read_seqs_[read_id] = seq;
-    unsigned long long curhash = 0; 
-    for (int i = 0; i < kIndexKmer; i++) {
-      curhash <<= 2;
-      curhash += trans[seq[i]];
-    }
-    read_index_[curhash].push_back(read_id);
-    for (int i = kIndexKmer; i < seq.length(); i++) {
-      curhash <<= 2;
-      curhash &= (1ll << (2*kIndexKmer)) - 1;
-      curhash += trans[seq[i]];
-      read_index_[curhash].push_back(read_id);
-    }    
+    read_index_.AddRead(seq, read_id);
     getline(ifs, l);
     getline(ifs, l);
   }
-  long long ss = 0;
-  for (auto &e: read_index_) {
-    ss += 1 + e.second.size();
-  }
-  printf("read index done, size %lld, %lld\n", read_index_.size(), ss);
+  read_index_.PrintSizeInfo();
 }
 
 void ReadSet::PreprocessReads() {

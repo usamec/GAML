@@ -302,6 +302,21 @@ class Graph {
 
 bool LoadGraph(const string& filename, Graph& gr);
 
+class ReadIndexTrivial {
+ public:
+  ReadIndexTrivial() {
+    trans['A'] = 1;
+    trans['T'] = 2;
+    trans['C'] = 3;
+    trans['G'] = 0;
+  }
+  void AddRead(const string& seq, int read_id);
+  void GetReadCands(const string& seq, unordered_set<int>& read_cands);
+  void PrintSizeInfo();
+  unordered_map<unsigned long long, vector<int> > read_index_;
+  char trans[256];
+};
+
 class ReadSet {
  public:
   // TODO: Calculate readlens from reads_file not from aligments
@@ -376,7 +391,7 @@ class ReadSet {
   string filename_;
   bool load_success_;
   vector<vector<pair<int, pair<int, int> > > > positions_;
-  unordered_map<unsigned long long, vector<int> > read_index_;
+  ReadIndexTrivial read_index_;
 };
 
 class PacbioReadSet {
