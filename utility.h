@@ -25,6 +25,13 @@ vector<T> USetToVector(const unordered_set<T>& x) {
   return ret;
 }
 
-
+inline vector<int> InvertPath(const vector<int> x) {
+  vector<int> ret;
+  if (x.empty()) return ret;
+  for (int i = x.size() - 1; i >= 0; i--) {
+    ret.push_back(x[i] ^ 1);
+  }
+  return ret;
+}
 
 #endif

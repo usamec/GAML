@@ -6,6 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <cstdlib>
 #include <queue>
+#include <deque>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
@@ -217,7 +218,7 @@ void Graph::CalcReachability() {
       for (auto &c: cands) {
         for (int j = 0; j < nodes[c.back()]->next.size(); j++) {
           if (nodes[c.back()]->next[j]->id == i) {
-            printf("add ", i);
+            printf("add %d ", i);
             for (auto &cc: c)
               printf("%d ", cc);
             printf("\n");
@@ -445,12 +446,43 @@ vector<vector<pair<int, pair<int, int> > > >& ReadSet::GetPositions() {
   return positions_;
 }
 
-vector<vector<pair<int, pair<int, int> > > >& ReadSet::AddPositions(
-    const Graph& gr, const vector<int>& path,
-    int& total_len, int st) {
-//  printf("calc score\n");
-  // Precomputation at once
-  unordered_set<vector<int> > subpaths_precomp;
+void ReadSet::PrecomputeAlignmentForPaths(const vector<vector<int>>& paths, const Graph& gr) {
+  unordered_set<vector<int>> subpaths_precomp;
+  for (auto &path: paths) {
+    for (int i = 0; i < path.size(); i++) {
+      if (path[i] < 0) continue;
+      int cur_len = 0;
+      cur_len = gr.nodes[path[i]]->s.length();
+      int cur_seq_len = 0;
+      vector<int> cur_seq, cur_seq2({-1});
+      cur_seq.push_back(path[i]);
+      cur_seq2.push_back(path[i]);
+      for (int j = i+1; j < path.size(); j++) {
+        if (path[j] < 0) break;
+        cur_seq_len += gr.nodes[path[j]]->s.length();
+        cur_seq.push_back(path[j]);
+        cur_seq2.push_back(path[j]);
+        if (cur_seq_len > kMinSubpathLength) {
+          break;
+        }
+      }
+      if (aligment_cache_.count(cur_seq) == 0) {
+        subpaths_precomp.insert(cur_seq);
+        subpaths_precomp.insert(InvertPath(cur_seq));
+      }
+  //    if (aligment_cache_.count(cur_seq2) == 0) {
+  //      subpaths_precomp.insert(cur_seq2);
+  //    }
+    }
+  }
+  if (!subpaths_precomp.empty()) {
+    printf("mass precomp start\n");
+    PrecomputeAligmentForSubpaths(gr, USetToVector(subpaths_precomp));
+  }
+}
+
+void ReadSet::GetSubpathsFromPath(
+    const vector<int>& path, const Graph& gr, unordered_set<vector<int>>& subpaths_precomp) {
   for (int i = 0; i < path.size(); i++) {
     int cur_len = 0;
     cur_len = gr.nodes[path[i]]->s.length();
@@ -473,6 +505,15 @@ vector<vector<pair<int, pair<int, int> > > >& ReadSet::AddPositions(
 //      subpaths_precomp.insert(cur_seq2);
 //    }
   }
+}
+
+vector<vector<pair<int, pair<int, int> > > >& ReadSet::AddPositions(
+    const Graph& gr, const vector<int>& path,
+    int& total_len, int st) {
+//  printf("calc score\n");
+  // Precomputation at once
+  unordered_set<vector<int> > subpaths_precomp;
+  GetSubpathsFromPath(path, gr, subpaths_precomp);
   if (!subpaths_precomp.empty()) {
     PrecomputeAligmentForSubpaths(gr, USetToVector(subpaths_precomp));
   }
@@ -526,34 +567,7 @@ vector<vector<pair<int, pair<int, int> > > >& ReadSet::GetPositions(
 //  printf("calc score\n");
   // Precomputation at once
   unordered_set<vector<int> > subpaths_precomp;
-  for (int i = 0; i < path.size(); i++) {
-    if (path[i] < 0) {
-      continue;
-    }
-    int cur_len = 0;
-    cur_len = gr.nodes[path[i]]->s.length();
-    int cur_seq_len = 0;
-    vector<int> cur_seq, cur_seq2({-1});
-    cur_seq.push_back(path[i]);
-    cur_seq2.push_back(path[i]);
-    for (int j = i+1; j < path.size(); j++) {
-      if (path[j] < 0) {
-        break;
-      }
-      cur_seq_len += gr.nodes[path[j]]->s.length();
-      cur_seq.push_back(path[j]);
-      cur_seq2.push_back(path[j]);
-      if (cur_seq_len > kMinSubpathLength) {
-        break;
-      }
-    }
-    if (aligment_cache_.count(cur_seq) == 0) {
-      subpaths_precomp.insert(cur_seq);
-    }
-//    if (aligment_cache_.count(cur_seq2) == 0) {
-//      subpaths_precomp.insert(cur_seq2);
-//    }
-  }
+  GetSubpathsFromPath(path, gr, subpaths_precomp);
   if (!subpaths_precomp.empty()) {
     PrecomputeAligmentForSubpaths(gr, USetToVector(subpaths_precomp));
   }
@@ -604,11 +618,170 @@ vector<vector<pair<int, pair<int, int> > > >& ReadSet::GetPositions(
   return positions_;
 }
 
+inline void PushIfNotVisited(
+    int dist, int cur_genome_pos, int cur_read_pos,
+    int read_pos, int genome_pos, int iteration,
+    deque<pair<int, pair<int, int>>>&fr, vector<vector<int>>& visited) {
+  int gp = cur_genome_pos - genome_pos + read_pos + 20;
+  if (visited[cur_read_pos + 1][gp] != iteration) {
+    fr.push_back(make_pair(dist, make_pair(cur_genome_pos, cur_read_pos)));
+    visited[cur_read_pos + 1][gp] = iteration;
+  }
+}
+
+inline void PushFrontIfNotVisited(
+    int dist, int cur_genome_pos, int cur_read_pos,
+    int read_pos, int genome_pos, int iteration,
+    deque<pair<int, pair<int, int>>>&fr, vector<vector<int>>& visited) {
+  int gp = cur_genome_pos - genome_pos + read_pos + 20;
+  if (visited[cur_read_pos + 1][gp] != iteration) {
+    fr.push_front(make_pair(dist, make_pair(cur_genome_pos, cur_read_pos)));
+    visited[cur_read_pos + 1][gp] = iteration;
+  }
+}
+
+// Errors, genome begin, genome end
+pair<int, pair<int, int>> ProcessHit(int genome_pos, int read_pos, const string& read, const string& genome) {
+  static deque<pair<int, pair<int, int>>> fr;
+  static int iteration = 0;
+  iteration++;
+  static vector<vector<int>> visited(read.size() + 47, vector<int>(read.size() + 47));
+  assert(read.substr(read_pos, kIndexKmer) == genome.substr(genome_pos, kIndexKmer));
+  int error_limit = 6;
+  // Forward
+  int forward_errs = -1;
+  fr.push_back(make_pair(0, make_pair(genome_pos + kIndexKmer, read_pos + kIndexKmer)));
+  int end_pos = -1;
+  while (!fr.empty()) {
+    pair<int, pair<int, int>> x = fr.front();
+    fr.pop_front();
+    if (x.first > error_limit) { 
+      fr.clear();
+      break;
+    }
+    if (x.second.second == read.size()) {
+      forward_errs = x.first;
+      fr.clear();
+      end_pos = x.second.first - 1;
+      break;
+    }
+    if (genome[x.second.first] == read[x.second.second]) {
+      if (x.second.first + 1 < genome.size() || x.second.second + 1 == read.size()) {
+        PushFrontIfNotVisited(x.first, x.second.first + 1, x.second.second + 1,
+                              read_pos, genome_pos, iteration, fr, visited);
+      }
+    } else {
+      if (x.second.first + 1 < genome.size()) {
+        PushIfNotVisited(x.first + 1, x.second.first + 1, x.second.second + 1,
+                         read_pos, genome_pos, iteration, fr, visited);
+        PushIfNotVisited(x.first + 1, x.second.first + 1, x.second.second,
+                         read_pos, genome_pos, iteration, fr, visited);
+      }
+      PushIfNotVisited(x.first + 1, x.second.first, x.second.second + 1,
+                       read_pos, genome_pos, iteration, fr, visited);
+    }
+  }
+  if (forward_errs == -1) return make_pair(-1, make_pair(-1, -1));
+  // Backward
+  int backward_errs = -1;
+  int begin_pos = -1;
+  fr.push_back(make_pair(0, make_pair(genome_pos - 1, read_pos - 1)));
+  while (!fr.empty()) {
+    pair<int, pair<int, int>> x = fr.front();
+    fr.pop_front();
+    if (x.first > error_limit) {
+      fr.clear();
+      break;
+    }
+    if (x.second.second == -1) {
+      backward_errs = x.first;
+      begin_pos = x.second.first + 1;
+      fr.clear();
+      break;
+    }
+    if (genome[x.second.first] == read[x.second.second]) {
+      if (x.second.first - 1 >= 0 || x.second.second - 1 == -1) {
+        PushFrontIfNotVisited(x.first, x.second.first - 1, x.second.second - 1,
+                              read_pos, genome_pos, iteration, fr, visited);
+      }
+    } else {
+      if (x.second.first - 1 >= 0) {
+        PushIfNotVisited(x.first + 1, x.second.first - 1, x.second.second - 1,
+                         read_pos, genome_pos, iteration, fr, visited);
+        PushIfNotVisited(x.first + 1, x.second.first - 1, x.second.second,
+                         read_pos, genome_pos, iteration, fr, visited);
+      }
+      PushIfNotVisited(x.first + 1, x.second.first, x.second.second - 1,
+                       read_pos, genome_pos, iteration, fr, visited);
+    }
+  }
+  if (backward_errs == -1) return make_pair(-1, make_pair(-1, -1));
+  return make_pair(backward_errs + forward_errs, make_pair(begin_pos, end_pos));
+}
+
+
+void ReadSet::AlignSubpathsInternal(
+    const Graph& gr, const vector<vector<int>>& subpaths) {
+  for (auto &path: subpaths) {
+    set<Aligment> current;
+/*    for (auto &e: golden) {
+      printf("g %d %d %d %d\n", e.position, e.read_id, e.orientation, e.edit_dist);
+    }*/
+    unordered_map<int, vector<int>> read_cands;
+    string seq;
+    for (auto &p: path) {
+      seq += gr.nodes[p]->s;
+    }
+    read_index_.GetReadCandsWithPoses(seq, read_cands);
+    for (auto &e: read_cands) {
+      for (auto &e2: e.second) {
+        int genome_pos;
+        string read_seq;
+//        printf("e2 %d\n", e2);
+        if (e2 > 0) {
+          genome_pos = e2 - kIndexKmer + 1;
+          read_seq = read_seqs_[e.first];
+        } else {
+          genome_pos = seq.size() - (-e2 + 1);
+          read_seq = ReverseSeq(read_seqs_[e.first]);
+        }
+        int read_pos = -1;
+        for (int i = 0; i + kIndexKmer - 1 < read_seq.length(); i++) {
+          if (read_seq.substr(i, kIndexKmer) == seq.substr(genome_pos, kIndexKmer)) {
+            read_pos = i;
+            break;
+          }
+        }
+        if (read_pos == -1) {
+          printf("%d\n%s\n%s\n", genome_pos, seq.substr(max(0,genome_pos-20), kIndexKmer+40).c_str(),
+              read_seq.c_str());
+        }
+        assert(read_pos != -1);
+        pair<int, pair<int, int>> align_res = ProcessHit(genome_pos, read_pos, read_seq, seq);
+//        printf("%d %d %d\n", align_res.first, align_res.second.first, align_res.second.second);
+
+        if (align_res.first != -1) {
+          Aligment al(align_res.second.first + 1, align_res.first, e.first, e2 > 0 ? 0 : 1);
+          current.insert(al);
+        }
+      }
+    }
+    for (auto &e: current) {
+      aligment_cache_[path].push_back(e);
+    }
+  }
+}
+
 void ReadSet::PrecomputeAligmentForSubpaths(
     const Graph& gr, const vector<vector<int> >& subpaths) {
   if (subpaths.empty()) return;
   for (auto &subpath: subpaths) {
     aligment_cache_[subpath] = vector<Aligment>();
+  }
+
+  if (!external_aligner_) {
+    AlignSubpathsInternal(gr, subpaths);
+    return;
   }
 
   char tmpname1[L_tmpnam+6], tmpname2[L_tmpnam], tmpname3[L_tmpnam],
@@ -668,7 +841,8 @@ void ReadSet::PrecomputeAligmentForSubpaths(
   cmd += tmpname4;
   cmd += " --very-sensitive --sam-no-hd -k 10000 --reorder ";
   cmd += " --no-unal --ignore-quals ";
-  cmd += kThreads;
+  if (read_cands.size() > 500) 
+    cmd += kThreads;
   cmd += " -S ";
   cmd += tmpname3;
   cmd += ">/dev/null 2>/dev/null";
@@ -710,6 +884,7 @@ void ReadSet::PrecomputeAligmentForSubpaths(
   for (auto& s: subpaths) {
     sort(aligment_cache_[s].begin(), aligment_cache_[s].end());
   }
+
   printf("precomp done %d\n", n_als);
   SaveAligments();
   remove(tmpname1);
@@ -718,6 +893,7 @@ void ReadSet::PrecomputeAligmentForSubpaths(
 }
 
 void ReadSet::SaveAligments(bool force) {
+  return;
   save_changes_++;
   printf("save ch %d\n", save_changes_);
   if (save_changes_ == 50 || force) {
@@ -872,7 +1048,14 @@ void ReadIndexMinHash::PrintSizeInfo() {
 }
 
 unsigned long long ReadIndexMinHash::Hash(unsigned long long x) {
-  return (x << 7) ^ (x >> 5) ^ (x & 0xffaaffaaffaaffaaULL) ^ (x >> 23) ^ (x << 23);
+//  return (x << 7) ^ (x >> 5) ^ (x & 0xffaaffaaffaaffaaULL) ^ (x >> 23) ^ (x << 23);
+  x = x ^ 0x2204abcd; 
+/*  x ^= x >> 16;
+  x *= 0x85ebca6b;
+  x ^= x >> 13;
+  x *= 0xc2b2ae35;
+  x ^= x >> 16;*/
+  return x;
 }
 
 unsigned long long ReadIndexMinHash::GetMinHashForSeq(const string& seq) {
@@ -898,9 +1081,67 @@ void ReadIndexMinHash::AddRead(const string& seq, int read_id) {
   read_len = seq.length();
 }
 
+void ReadIndexMinHash::GetMinHashWithPoses(
+    const string& seq, vector<pair<unsigned long long, int>>& mhs) {
+  deque<pair<unsigned long long, int>> d;
+  unsigned long long curhash = 0;
+  for (int i = 0; i < kIndexKmer; i++) {
+    curhash <<= 2;
+    curhash += trans[seq[i]];
+  }
+  unsigned long long mh = Hash(curhash);
+  d.push_back(make_pair(mh, kIndexKmer-1));
+  unsigned long long last_mh = 0;
+  for (int i = kIndexKmer; i < seq.length(); i++) {
+    while (!d.empty() && d.front().second < i - read_len + kIndexKmer) {
+      d.pop_front();
+    }
+    curhash <<= 2;
+    curhash &= (1ll << (2*kIndexKmer)) - 1;
+    curhash += trans[seq[i]];
+    unsigned long long mh = Hash(curhash);
+    while (!d.empty() && d.back().first < mh) {
+      d.pop_back();
+    }
+    d.push_back(make_pair(mh,i));
+    if (i >= read_len - 1) {
+      unsigned long long mhx = d.front().first;
+      if (i == read_len - 1 || mhx != last_mh) {
+        mhs.push_back(make_pair(mhx, d.front().second));
+        last_mh = mhx;
+      }
+    }
+  }
+}
+
+void ReadIndexMinHash::GetReadCandsWithPoses(
+    const string& seq, unordered_map<int, vector<int>>& read_cands) {
+  vector<pair<unsigned long long, int>> mhsf;
+  GetMinHashWithPoses(seq, mhsf);
+  for (auto &e: mhsf) {
+    if (read_index_.count(e.first)) {
+      for (auto &e2: read_index_[e.first]) {
+        assert(GetMinHashForSeq(seq.substr(e.second - kIndexKmer + 1, kIndexKmer))
+               == e.first);
+        read_cands[e2].push_back(e.second);
+      }
+    }
+  }
+  string seqr = ReverseSeq(seq);
+  vector<pair<unsigned long long, int>> mhsr;
+  GetMinHashWithPoses(seqr, mhsr);
+  for (auto &e: mhsr) {
+    if (read_index_.count(e.first)) {
+      for (auto &e2: read_index_[e.first]) {
+        read_cands[e2].push_back(-e.second);
+      }
+    }
+  }
+}
+
 void ReadIndexMinHash::GetReadCands(const string& seq, unordered_set<int>& read_cands) {
-  // Very stupid version 
-  for (int i = 0; i < seq.length() - read_len + 1; i++) {
+  // Very stupid version
+  for (int i = 0; i + read_len - 1 < seq.length(); i++) {
     string s = seq.substr(i, read_len);
     string sr = ReverseSeq(s);
     unsigned long long mh1 = GetMinHashForSeq(s);
@@ -1295,6 +1536,8 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
   vector<double> read_probs(read_set1.GetNumberOfReads());
   read_set1.ClearPositions();
   read_set2.ClearPositions();
+  read_set1.PrecomputeAlignmentForPaths(paths, gr);
+  read_set2.PrecomputeAlignmentForPaths(paths, gr);
   int st = 0;
   // (position, type)
   // type: 3 - begin, 4 - end, 1 - start path, 2 - end path

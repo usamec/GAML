@@ -224,6 +224,7 @@ struct Aligment {
         position(pos), edit_dist(ed), read_id(read_id), orientation(orientation) {}
 
   bool operator<(const Aligment& b) const {
+    if (position == b.position) return read_id < b.read_id;
     return position < b.position;
   }
 };
@@ -326,7 +327,9 @@ class ReadIndexMinHash {
     trans['G'] = 0;
   }
   void AddRead(const string& seq, int read_id);
+  void GetMinHashWithPoses(const string& seq, vector<pair<unsigned long long, int>>& mhs);
   void GetReadCands(const string& seq, unordered_set<int>& read_cands);
+  void GetReadCandsWithPoses(const string& seq, unordered_map<int, vector<int>>& read_cands);
   void PrintSizeInfo();
   unsigned long long Hash(unsigned long long x);
   unsigned long long GetMinHashForSeq(const string& seq);
@@ -341,7 +344,7 @@ class ReadSet {
   ReadSet(const string& name, const string& filename, double match_prob, double mismatch_prob) : 
       save_changes_(0),
       reads_num_(0), name_(name), filename_(filename), match_prob_(match_prob),
-      mismatch_prob_(mismatch_prob), load_success_(false) {}
+      mismatch_prob_(mismatch_prob), load_success_(false), external_aligner_(false) {}
 
   void PreprocessReads();
   void PrepareReadIndex();
@@ -355,6 +358,8 @@ class ReadSet {
   vector<vector<pair<int, pair<int, int> > > >& AddPositions(
       const Graph& gr, const vector<int>& path, int& total_len, int st);
   vector<vector<pair<int, pair<int, int> > > >& GetPositions();
+
+  void PrecomputeAlignmentForPaths(const vector<vector<int>>& paths, const Graph& gr);
 
 
   void ClearPositions();
@@ -384,6 +389,9 @@ class ReadSet {
   void PrecomputeAligmentForSubpaths(
       const Graph& gr, const vector<vector<int> >& subpaths);
 
+  void AlignSubpathsInternal(
+      const Graph& gr, const vector<vector<int> >& subpaths);
+
   int GetReadId(const string& read_name) {
     if (read_map_.count(read_name) == 0) {
       assert(load_success_ == false);
@@ -398,6 +406,8 @@ class ReadSet {
 
   void CalcMaxReadLen();
 
+  void GetSubpathsFromPath(const vector<int>& path, const Graph& gr, unordered_set<vector<int>>& subpaths_precomp);
+
   int reads_num_;
   unordered_map<vector<int>, vector<Aligment> > aligment_cache_;
   unordered_map<string, int> read_map_;
@@ -410,6 +420,8 @@ class ReadSet {
   bool load_success_;
   vector<vector<pair<int, pair<int, int> > > > positions_;
   ReadIndexMinHash read_index_;
+  //ReadIndexTrivial read_index_;
+  bool external_aligner_;
 };
 
 class PacbioReadSet {
