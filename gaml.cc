@@ -14,6 +14,7 @@
 #include "input_output.h"
 #include "moves.h"
 #include "prob_calculator.h"
+#include "graph_from_assembly.h"
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_YELLOW  "\x1b[33m"
@@ -90,8 +91,9 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int longest_read, AssemblySettings& settings) {
   int threshold = settings.threshold;
   gr.CalcReachability();
-  gr.CalcReachabilityBig(threshold);
-  gr.CalcReachabilityLimit(2*longest_read);
+/*  gr.CalcReachabilityBig(threshold);
+  gr.CalcReachabilityLimit(2*longest_read);*/
+  gr.reach_limit_.resize(gr.nodes.size());
 
   int total_len;
   int kmer = 47;
@@ -103,6 +105,7 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     printf("%d/%d ", e.first, e.second);
   }
   printf("\n");
+  exit(0);
   OutputPathsToFile(paths, gr, kmer, threshold, settings.output_prefix);
   printf("\n");
 
@@ -272,8 +275,8 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
       OutputPathsToFile(best_paths, gr, kmer, threshold, settings.output_prefix);
       printf("\n");
     }
-    OutputPathsToConsole(new_paths, gr, threshold);
-    printf("\n");
+    //OutputPathsToConsole(new_paths, gr, threshold);
+    //printf("\n");
 
     // Evaluate probability
     double new_prob = prob_calc.CalcProb(new_paths, zeros, total_len);
@@ -347,6 +350,26 @@ struct Pos {
   Pos(int cp, int np, int n, int d=0) : contig_pos(cp), node_pos(np), node(n), dist(d) {}
 };
 
+namespace std {
+  template<> struct hash<Pos> {
+    inline size_t operator()(const Pos& p) const {
+      size_t seed = 0;
+      ::hash_combine(seed, p.contig_pos);
+      ::hash_combine(seed, p.node_pos);
+      ::hash_combine(seed, p.node);
+      ::hash_combine(seed, p.dist);
+      return seed;
+    }
+  };
+}
+
+bool operator==(const Pos& a, const Pos& b) {
+  return a.contig_pos == b.contig_pos && 
+         a.node_pos == b.node_pos &&
+         a.node == b.node &&
+         a.dist == b.dist;
+}
+
 bool BaseEq(char a, char b) {
   if (a == b) return true;
   if (b == 'R' && (a == 'A' || a == 'G')) return true;
@@ -358,13 +381,30 @@ bool BaseEq(char a, char b) {
   return false;
 }
 
+inline void PushPosBack(Pos &x, deque<Pos>& fr, unordered_set<Pos>& visited) {
+  if (visited.count(x) == 0) {
+    fr.push_back(x);
+    visited.insert(x);
+  }
+}
+
+inline void PushPosFront(Pos &x, deque<Pos>& fr, unordered_set<Pos>& visited) {
+  if (visited.count(x) == 0) {
+    fr.push_front(x);
+    visited.insert(x);
+  }
+}
+
 // Some procedures for finding walks if we are given starting assembly
 bool AlignContig(const Graph& gr, int start, int target, 
                  const string& contig, vector<int>& path) {
   deque<Pos> fr;
-  fr.push_back(Pos(0, gr.nodes[start]->s.length(), start));
+  unordered_set<Pos> visited;
+  Pos start_pos(0, gr.nodes[start]->s.length(), start);
+  fr.push_back(start_pos);
+  visited.insert(start_pos);
   printf("0-1 BFS begin\n");
-  int max_dist = 5;
+  int max_dist = 10;
   int mcp = 0;
   while (!fr.empty()) {
     Pos x = fr.front(); fr.pop_front();
@@ -373,7 +413,7 @@ bool AlignContig(const Graph& gr, int start, int target,
     if (x.dist < max_dist) {
       Pos nx(x.contig_pos+1, x.node_pos, x.node, x.dist+1);
       nx.path = x.path;
-      fr.push_back(nx);
+      PushPosBack(nx, fr, visited);
     }
     if (target == -1 && x.contig_pos == contig.length()) {
       path = x.path;
@@ -391,16 +431,16 @@ bool AlignContig(const Graph& gr, int start, int target,
           Pos nx(x.contig_pos+1, 1, nnode, x.dist);
           nx.path = x.path;
           nx.path.push_back(nnode);
-          fr.push_front(nx);
+          PushPosFront(nx, fr, visited);
         } else if (x.dist < max_dist) {
           Pos nxs(x.contig_pos+1, 1, nnode, x.dist+1);
           nxs.path = x.path;
           nxs.path.push_back(nnode);
-          fr.push_back(nxs);              
+          PushPosBack(nxs, fr, visited);
           Pos nxi(x.contig_pos, 1, nnode, x.dist+1);
           nxi.path = x.path;
           nxi.path.push_back(nnode);
-          fr.push_back(nxi);              
+          PushPosBack(nxi, fr, visited);
         }
       }
     } else {
@@ -408,14 +448,14 @@ bool AlignContig(const Graph& gr, int start, int target,
       if (BaseEq(gr.nodes[x.node]->s[x.node_pos], contig[x.contig_pos])) {
         Pos nx(x.contig_pos+1, x.node_pos+1, x.node, x.dist);
         nx.path = x.path;
-        fr.push_front(nx);
+        PushPosFront(nx, fr, visited);
       } else if (x.dist < max_dist) {
         Pos nxs(x.contig_pos+1, x.node_pos+1, x.node, x.dist+1);
         nxs.path = x.path;
-        fr.push_back(nxs);
+        PushPosBack(nxs, fr, visited);
         Pos nxi(x.contig_pos, x.node_pos+1, x.node, x.dist+1);
         nxi.path = x.path;
-        fr.push_back(nxi);
+        PushPosBack(nxi, fr, visited);
       }
     }
   }
@@ -433,8 +473,11 @@ void AligmentToPath(
     int cur = als[i].first;
     printf("  last %d cur %d\n", last, cur);
     if (cur < last) {
-      printf("PROBLEM\n");
-      continue;
+      printf("PROBLEM %s\n", contig.substr(cur-20, last - cur + 40).c_str());
+      printf("%s\n", gr.nodes[als[i-1].second]->s.substr(gr.nodes[als[i-1].second]->s.length() - 50, 50).c_str());
+      printf("%s\n", gr.nodes[als[i].second]->s.substr(0, 50).c_str());
+//      continue;
+//      cur_path.push_back(als[0].second);
     }
     if (last < cur) {
       vector<pair<int, int>> runs;
@@ -462,13 +505,16 @@ void AligmentToPath(
                                  contig.substr(last-1, cur-last), found_path);
         if (!found) {
           printf("not found %d %d %d\n", cur, last, cur-last);
-          paths.push_back(cur_path);
-          cur_path.clear();
+/*          paths.push_back(cur_path);
+          cur_path.clear();*/
+          if (cur - last > 2000) printf("big gap %d %d %d\n", cur, last, cur-last);
+          cur_path.push_back(-(cur-last));
         } else {
           printf("good found\n");
           cur_path.insert(cur_path.end(), found_path.begin(), found_path.end());
         }
       } else {
+        if (cur - last > 2000) printf("big gap %d %d %d\n", cur, last, cur-last);
         cur_path.push_back(-(cur-last));
       }
     } 
@@ -517,12 +563,12 @@ void GetPaths(const Graph&gr, const string& contigs, vector<vector<int>>& paths)
     }
   }
   fclose(f);
-  string cmd1 = "mummer/nucmer -maxmatch -p ";
+  string cmd1 = "../programs/mummer/nucmer -f -maxmatch -p ";
   cmd1 += tmpname2;
   cmd1 += " "+ contigs + " " + tmpname1;
   printf("%s\n", cmd1.c_str());
   system(cmd1.c_str());
-  string cmd2 = "mummer/show-coords ";
+  string cmd2 = "../programs/mummer/show-coords -r ";
   cmd2 += tmpname2;
   cmd2 += ".delta >";
   cmd2 += tmpname2;
@@ -544,12 +590,49 @@ void GetPaths(const Graph&gr, const string& contigs, vector<vector<int>>& paths)
     int our_node = atoi(p[p.size()-1].c_str());
     double id = atof(p[p.size()-4].c_str());
     if (id < 99) continue;
-    if (p[4] != "1" || atoi(p[5].c_str()) < gr.nodes[our_node]->s.length()-1) {
-      printf("out %s: %s %s %d %d\n", contig.c_str(), p[4].c_str(), p[5].c_str(), our_node,
-             (int)gr.nodes[our_node]->s.length());
-      continue;
-    }
     int place = atoi(p[1].c_str());
+    int start = atoi(p[4].c_str());
+    int end = atoi(p[5].c_str());
+    if ((p[4] != "1" || atoi(p[5].c_str()) < gr.nodes[our_node]->s.length()-1) &&
+        (end - start < 0.98 * gr.nodes[our_node]->s.length())) {
+      printf("out %s: %s %s %d %d %d\n", contig.c_str(), p[4].c_str(), p[5].c_str(), our_node,
+             (int)gr.nodes[our_node]->s.length(), place);
+      bool bad = true;
+      if (start < 100 && start > 3) {
+        int b = min(place - start, 10);
+        bad = false;
+        for (int i = 0; i < start && i < 20; i++) {
+          if (place - i - 2 < 0 || ctgs[contig][place-i-2] != 'N') {
+            printf("bad %c\n", ctgs[contig][place-i-2]);
+            bad = true; break;
+          }
+          printf("%d/%d %c\n", i, start, ctgs[contig][place-i-2]);
+        }
+        if (!bad) {
+          place -= start - 1;
+        }
+      }
+      if (end + 100 > gr.nodes[our_node]->s.length() && end < gr.nodes[our_node]->s.length() - 1) {
+/*        printf("%s\n", ctgs[contig].substr(place + end - 10, 25).c_str());
+        printf("%s\n", gr.nodes[our_node]->s.substr(end - 10, 25).c_str());*/
+        bad = false;
+        for (int i = 0; i < gr.nodes[our_node]->s.length() - end - 1 && i < 20; i++) {
+          if (place + end + i >= ctgs[contig].length() || ctgs[contig][place+end+i] != 'N') {
+            printf("bad %c\n", ctgs[contig][place+end+i]);
+            if (contig == "velvet.140") {
+              printf("%s\n", gr.nodes[our_node]->s.c_str());
+              printf("%s\n", ctgs[contig].substr(42700, 75).c_str());
+            }
+            bad = true; break;
+          }
+          printf("%d/%d %c\n", i, gr.nodes[our_node]->s.length() - end - 1,
+              ctgs[contig][place+end+i]);
+        }
+      }
+      if (bad) {  
+        continue;
+      }
+    }
     als[contig].push_back(make_pair(place, our_node));
   }
 
@@ -600,7 +683,9 @@ void GetPaths(const Graph&gr, const string& contigs, vector<vector<int>>& paths)
   int alc = 0;
   for (auto &e: ctgs) {
     if (als.count(e.first) == 0) {
-      printf("no al %s: %s\n", e.first.c_str(), e.second.c_str());
+      if (e.second.size() > 500) {
+        printf("no al %s(%d): %s\n", e.first.c_str(), e.second.size(), e.second.c_str());
+      }
     } else {
       alc++;
     }
@@ -624,6 +709,27 @@ void ClipPaths(vector<vector<int>>& paths, const Graph& gr) {
     out.push_back(vector<int>(p.begin()+b, p.begin()+e+1));
   }
   paths=out;
+}
+
+void AddMissingBigNodes(vector<vector<int>>& paths, const Graph& gr) {
+  printf("add missing start\n");
+  unordered_set<int> found_nodes;
+  for (auto &p: paths) {
+    for (auto &e: p) {
+      found_nodes.insert(e);
+      found_nodes.insert(e^1);
+    }
+  }
+  printf("aaa %d\n", gr.nodes.size());
+  for (int i = 0; i < gr.nodes.size(); i+=2) {
+    printf("%d/%d\n", i, gr.nodes.size());
+    printf("ll %d\n", gr.nodes[i]->s.length());
+    if (gr.nodes[i]->s.length() <= 500) continue;
+    if (found_nodes.count(i)) continue;
+    printf("add\n");
+    paths.push_back(vector<int>({i}));
+  }
+  printf("bbb\n");
 }
 
 bool ParseConfigLine(const string& line, string& key, string& value) {
@@ -837,7 +943,7 @@ int main(int argc, char** argv) {
     printf("Load config failed\n");
     return 1;
   }
-  if (configs.count("graph") == 0) {
+  if (configs.count("graph") == 0 && configs.count("starting_assembly") == 0) {
     fprintf(stderr, "Missing graph in config\n");
     return 1;
   }
@@ -850,10 +956,56 @@ int main(int argc, char** argv) {
                            paired_reads, pacbio_reads);
 
   Graph gr;
-  if (!LoadGraph(configs["graph"], gr)) {
-    printf("Load graph failed\n");
-    return 1;
+  if (configs.count("graph")) {
+    if (!LoadGraph(configs["graph"], gr)) {
+      printf("Load graph failed\n");
+      return 1;
+    }
   }
+  vector<vector<int>> starting_paths;
+  AssemblySettings settings(configs);
+
+  if (configs.count("starting_assembly")) {
+    if (configs.count("graph")) {
+      GetPaths(gr, configs["starting_assembly"], starting_paths);
+    } else {
+      GetGraphFromAssembly(configs["starting_assembly"], gr, starting_paths);
+    }
+    ClipPaths(starting_paths, gr);
+    printf("plc ");
+    for (auto &p: starting_paths) {
+      int len = 0;
+      for (auto &e: p) {
+        if (e < 0) len += -e;
+        else len += gr.nodes[e]->s.size();
+      }
+      printf("%d ", len);
+    }
+    printf("\n");
+    AddMissingBigNodes(starting_paths, gr);
+    printf("plm ");
+    for (auto &p: starting_paths) {
+      int len = 0;
+      for (auto &e: p) {
+        if (e < 0) len += -e;
+        else len += gr.nodes[e]->s.size();
+      }
+      printf("%d ", len);
+    }
+    printf("\n");
+//    starting_paths[0].resize(2262);
+//    starting_paths[0].resize(2259);
+    printf("starting paths %d\n", starting_paths[0].size());
+    OutputPathsToFile(starting_paths, gr, 61, 500, "starting3");
+    printf("\n");
+  } else {
+    for (int i = 0; i < gr.nodes.size(); i+=2) {
+      if (gr.nodes[i]->s.length() > settings.threshold)
+        starting_paths.push_back(vector<int>({i}));
+    }
+  }
+
+  printf("loading reads\n");
 
   ProbCalculator pc(single_reads, paired_reads, pacbio_reads, gr);
 
@@ -867,18 +1019,6 @@ int main(int argc, char** argv) {
 
   //TODO: configure optimazation 
 
-  vector<vector<int>> starting_paths;
-  AssemblySettings settings(configs);
-
-  if (configs.count("starting_assembly")) {
-    GetPaths(gr, configs["starting_assembly"], starting_paths);
-    ClipPaths(starting_paths, gr);
-  } else {
-    for (int i = 0; i < gr.nodes.size(); i+=2) {
-      if (gr.nodes[i]->s.length() > settings.threshold)
-        starting_paths.push_back(vector<int>({i}));
-    }
-  }
 
   Optimize(gr, pc, starting_paths, advice_paired, advice_pacbio, longest_read, settings); 
 }

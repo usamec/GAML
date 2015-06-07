@@ -29,9 +29,22 @@ inline vector<int> InvertPath(const vector<int> x) {
   vector<int> ret;
   if (x.empty()) return ret;
   for (int i = x.size() - 1; i >= 0; i--) {
-    ret.push_back(x[i] ^ 1);
+    if (x[i] >= 0) 
+      ret.push_back(x[i] ^ 1);
+    else
+      ret.push_back(x[i]);
   }
   return ret;
 }
+
+inline void ReversePath(vector<int>& path) {
+  reverse(path.begin(), path.end());
+  for (int i = 0; i < path.size(); i++) {
+    if (path[i] >= 0) {
+      path[i] ^= 1;
+    }
+  }
+}
+
 
 #endif

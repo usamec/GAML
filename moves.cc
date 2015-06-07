@@ -355,24 +355,10 @@ bool FixSelfLoops(vector<vector<int> >& new_paths, Graph& gr, int threshold) {
   return true;
 }
 
-void ReversePath(vector<int>& path) {
-  reverse(path.begin(), path.end());
-  for (int i = 0; i < path.size(); i++) {
-    if (path[i] >= 0) {
-      path[i] ^= 1;
-    }
-  }
-}
-
 bool ExtendPathsAlt(vector<vector<int> >& paths, Graph& gr, int threshold) {
   for (int i = 0; i < paths.size(); i++) {
     if (rand() % 2 == 0) {
-      reverse(paths[i].begin(), paths[i].end());
-      for (int j = 0; j < paths[i].size(); j++) {
-        if (paths[i][j] >= 0) {
-          paths[i][j] ^= 1;
-        }
-      }
+      ReversePath(paths[i]);
     }
   }
 
@@ -381,11 +367,7 @@ bool ExtendPathsAlt(vector<vector<int> >& paths, Graph& gr, int threshold) {
   vector<int> path = paths[rp];
   paths.erase(paths.begin()+rp);
   if (rev) {
-    reverse(path.begin(), path.end());
-    for (int i = 0; i < path.size(); i++) {
-      if (path[i] >= 0)
-        path[i] ^= 1;
-    }
+    ReversePath(path);
   }
   unordered_map<int, vector<int> > path_ends;
   unordered_map<int, vector<pair<int, int> > > path_poses;
@@ -747,12 +729,14 @@ int SamplePathByLength(vector<vector<int> >& paths, Graph& gr) {
     for (int j = 0; j < paths[i].size(); j++) {
       if (paths[i][j] >= 0) {
         lens[i] += gr.nodes[paths[i][j]]->s.length();
-        ss += gr.nodes[paths[i][j]]->s.length();
+//        ss += gr.nodes[paths[i][j]]->s.length();
       } else {
         lens[i] += -paths[i][j];
-        ss += -paths[i][j];
+//        ss += -paths[i][j];
       }
     }
+    lens[i] = sqrt(lens[i]+10);
+    ss += lens[i];
   }
   int r = rand()%ss;
   ss = 0;
@@ -764,12 +748,94 @@ int SamplePathByLength(vector<vector<int> >& paths, Graph& gr) {
   return paths.size()-1;
 }
 
+void FixGapLength(vector<vector<int>>& paths, int path_id, int gap_pos,
+                  ProbCalculator& prob_calc, int lower, int upper) {
+  printf("fix inner %d %d\n", lower, upper);
+  if (upper - lower <= 1) {
+    paths[path_id][gap_pos] = -lower;
+    return;
+  }
+
+  if (upper - lower == 2) {
+    paths[path_id][gap_pos] = - ((upper+lower)/2);
+    paths[path_id][gap_pos] = -lower;
+    double low_p = prob_calc.CalcProb(paths);
+    double mid_p = prob_calc.CalcProb(paths);
+    if (mid_p > low_p) {
+      return;
+    } else {
+      paths[path_id][gap_pos] = -lower;
+      return;
+    }
+  }
+
+  int mid1 = lower + (upper - lower)/3;
+  int mid2 = lower + (upper - lower)/3*2;
+  paths[path_id][gap_pos] = -mid1;
+  double mid1_p = prob_calc.CalcProb(paths);
+  paths[path_id][gap_pos] = -mid2;
+  double mid2_p = prob_calc.CalcProb(paths);
+
+  if (mid1_p >= mid2_p) {
+    FixGapLength(paths, path_id, gap_pos, prob_calc, lower, mid2);
+  } else {
+    FixGapLength(paths, path_id, gap_pos, prob_calc, mid1, upper);
+  }
+}
+
 bool FixGapLength(vector<vector<int> >& paths, int path_id, int gap_pos,
                   ProbCalculator& prob_calc, int prev_len) {
+  // TRACTOOOOOOOOOOOOOOOOOOR
   int cur_length = -paths[path_id][gap_pos];
   printf("fix len %d %d %d\n", path_id, gap_pos, cur_length); 
   assert(cur_length > 0);
-  int max_move = cur_length - 1;
+
+  // 0 - minimum
+  // 1 - go up
+  // 2 - go down
+  int state = 0;
+  double cur_p = prob_calc.CalcProb(paths);
+  paths[path_id][gap_pos] = -(cur_length + 1);
+  double up_p = prob_calc.CalcProb(paths);
+  if (cur_length == 1) {
+    if (up_p > cur_p) {
+      state = 1;
+    }
+  } else {
+    paths[path_id][gap_pos] = -(cur_length - 1);
+    double down_p = prob_calc.CalcProb(paths);
+    if (down_p > cur_p && cur_p > up_p) {
+      state = 2;
+    }
+    if (up_p > cur_p && cur_p > down_p) {
+      state = 1;
+    }
+  }
+  printf("fix state %d\n", state);
+  if (state == 0) {
+    return true;
+  }
+
+  if (state == 1) {
+    double last_p = cur_p;
+    int upper_bound = cur_length * 2;
+    while (true) {
+      paths[path_id][gap_pos] = -upper_bound;
+      double up_p = prob_calc.CalcProb(paths);
+      if (up_p < last_p) {
+        break;
+      }
+      last_p = up_p;
+      upper_bound *= 2;
+    }
+    printf("fix upper bound %d %d\n", cur_length, upper_bound);
+    FixGapLength(paths, path_id, gap_pos, prob_calc, cur_length + 1, upper_bound);
+  }
+  if (state == 2) {
+    FixGapLength(paths, path_id, gap_pos, prob_calc, 1, cur_length);
+  }
+
+  /*int max_move = cur_length - 1;
   if (prev_len != -1) {
     max_move = min(max_move, abs(prev_len - cur_length));
   }
@@ -786,7 +852,7 @@ bool FixGapLength(vector<vector<int> >& paths, int path_id, int gap_pos,
       return FixGapLength(paths, path_id, gap_pos, prob_calc, cur_length);
     }
     paths[path_id][gap_pos] = -(cur_length);
-  }
+  }*/
   return true;
 }
 
@@ -794,8 +860,11 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
                     PacbioReadSet& rs, int kmer, ProbCalculator& prob_calc) {
   printf("extend adv\n");
   int rp = SamplePathByLength(paths, gr);
-  printf("rp %d\n", rp);
+  printf("rp %d %d %d\n", rp, paths.size(), paths[rp].size());
+  assert(rp < paths.size());
   vector<int> path = paths[rp];
+  for (auto &e: path) printf("%d ", e);
+  printf("\n");
   int rev = rand()%2;
   if (rev == 1) {
     for (int i = 0; i < path.size(); i++) {
@@ -805,7 +874,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     reverse(path.begin(), path.end());
   }
   paths.erase(paths.begin()+rp);
-
+  printf("aaaa\n");
   int tl1;
   unordered_set<int> path_v(path.begin(), path.end());
   for (auto &e: path)
@@ -922,8 +991,12 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
                     ReadSet& rs1, ReadSet& rs2, int kmer, ProbCalculator& prob_calc) {
   printf("extend adv\n");
   int rp = SamplePathByLength(paths, gr);
-  printf("rp %d\n", rp);
+  printf("rp %d %d\n", rp, paths.size());
   vector<int> path = paths[rp];
+/*  for (auto &e: path) {
+    printf("%d ", e);
+  }
+  printf("\n");*/
   int rev = rand()%2;
   if (rev == 1) {
     for (int i = 0; i < path.size(); i++) {
@@ -934,24 +1007,12 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
   }
   paths.erase(paths.begin()+rp);
 
-  unordered_map<int, vector<int> > read_poses;
-  unordered_map<int, vector<int> > read_poses_1;
-  for (int i = 0; i < gr.nodes.size(); i++) {
-    if (gr.nodes[i]->s.length() > threshold) {
-      vector<int> path({i});
-      int tl1;
-      vector<vector<pair<int, pair<int, int> > > >& positions1 = 
-        rs2.GetPositions(gr, path, tl1);
-      for (int j = 0; j < rs2.GetNumberOfReads(); j++) {
-        if (!positions1[j].empty()) {
-          read_poses[j].push_back(i);
-          if (positions1[j][0].second.second == 1)
-            read_poses_1[j].push_back(i);
-        }
-      }
-    }
-  }
+  printf("aaa\n");
+  rs2.BuildAdviceIndex(gr, threshold);
+  unordered_map<int, vector<int> >& read_poses = rs2.GetAdviceIndex();
+  unordered_map<int, vector<int> >& read_poses_1 = rs2.GetAdviceIndex1();
 
+  printf("bbb\n");
   int tl1;
   unordered_set<int> path_v(path.begin(), path.end());
   for (auto &e: path)
@@ -964,6 +1025,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
   bool allow_gaps = false;
   if (rand() % 5 == 0) allow_gaps = true;
 
+  printf("bbbb\n");
   for (int i = 0; i < rs1.GetNumberOfReads(); i++) {
     if (positions1[i].empty()) continue;
     if (positions1[i][0].second.second != 0) continue;
@@ -975,6 +1037,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     } 
   }
 
+  printf("bbbbb\n");
   if (cands.empty()) {
     allow_gaps = true;
     for (int i = 0; i < rs1.GetNumberOfReads(); i++) {
@@ -989,6 +1052,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     }
   }
 
+  printf("bbbbbb\n");
   unordered_map<int, vector<int> > path_ends;
   for (int i = 0; i < paths.size(); i++) {
     path_ends[paths[i][0]].push_back(i+1);
@@ -1032,6 +1096,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     found = true;
   }
   if (!found) {
+    printf("join not found\n");
     return false;
   }
   if (join != 0) {

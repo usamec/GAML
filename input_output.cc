@@ -30,12 +30,13 @@ void OutputPathsToFile(const vector<vector<int>>& paths, Graph& gr, int kmer, in
   for (int i = 0; i < paths.size(); i++) {
     printf("(");
     for (int j = 0; j < paths[i].size(); j++) {
-      printf("%d%c", paths[i][j], j + 1 == paths[i].size() ? ')' : ',');
+      printf("%d(%d)%c", paths[i][j], paths[i][j] >= 0 ? gr.nodes[paths[i][j]]->s.size() : 0, j + 1 == paths[i].size() ? ')' : ',');
     }
     printf(" ");
     gr.OutputPathA(paths[i], kmer, outputfilename.c_str(), i);
     gr.OutputPathC(paths[i], kmer, walksfilename.c_str(), i);
   }
+  printf("onlylarge\n");
   fo = fopen((filename+".onlylarge.fasta").c_str(), "w");
   fclose(fo);
   for (int i = 0; i < paths.size(); i++) {

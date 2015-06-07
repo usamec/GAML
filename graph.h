@@ -60,6 +60,7 @@ inline char ReverseBase(char a) {
   if (a == 'C') return 'G';
   if (a == 'G') return 'C';
   if (a == 'T') return 'A';
+  return a;
 }
 
 inline Seq ReverseSeq(const Seq& x) {
@@ -77,7 +78,7 @@ class Node {
   vector<Node*> next;
   vector<double> next_prob;
   double next_sum;
-  Node* inv;
+/*  Node* inv;
 
   Seq GetNodeSeq(int kmer) const {
     if (inv->s.length() >= kmer-1) {
@@ -94,7 +95,7 @@ class Node {
       pred = pred.substr(0, kmer-1);
       return pred + s;
     } 
-  }
+  }*/
 
   int GetNodeLen(int kmer) const {
     return s.length() + kmer - 1;
@@ -237,9 +238,7 @@ class Graph {
     return nodes[i];
   }
 
-  vector<double> reachability_;
-  double reach_sum_;
-  vector<unordered_set<int> > reach_sets_;
+//  vector<unordered_set<int> > reach_sets_;
   // from->to->path between
   vector<unordered_map<int, vector<int> > > reach_big_;
   vector<unordered_map<int, vector<int> > > reach_limit_;
@@ -248,16 +247,20 @@ class Graph {
   vector<int> normalize_map;
 
   void CalcNormalizeMap() {
+    unordered_map<string, int> small_strs;
+    printf("norm map start %d\n", nodes.size());
     normalize_map.resize(nodes.size());
     for (int i = 0; i < nodes.size(); i++) {
       normalize_map[i] = i;
     }
     for (int i = 0; i < nodes.size(); i++) {
-      for (int j = 0; j < i; j++) {
-        if (nodes[i]->s == nodes[j]->s) {
-          normalize_map[i] = j;
-          break;
-        }
+      if (nodes[i]->s.length() > 3) {
+        continue;
+      }
+      if (small_strs.count(nodes[i]->s)) {
+        normalize_map[i] = small_strs[nodes[i]->s];
+      } else {
+        small_strs[nodes[i]->s] = i;
       }
     }
   }
@@ -272,7 +275,6 @@ class Graph {
   void CalcReachability();
   void CalcReachabilityBig(int threshold);
   void CalcReachabilityLimit(int max_dist);
-  int SampleVertexByReach() const;
 
   void CalcProbSums() {
     for (auto &x: nodes) {
@@ -313,6 +315,7 @@ class ReadIndexTrivial {
   }
   void AddRead(const string& seq, int read_id);
   void GetReadCands(const string& seq, unordered_set<int>& read_cands);
+  void GetReadCandsWithPoses(const string& seq, unordered_map<int, vector<int>>& read_cands);
   void PrintSizeInfo();
   unordered_map<unsigned long long, vector<int> > read_index_;
   char trans[256];
@@ -344,7 +347,8 @@ class ReadSet {
   ReadSet(const string& name, const string& filename, double match_prob, double mismatch_prob) : 
       save_changes_(0),
       reads_num_(0), name_(name), filename_(filename), match_prob_(match_prob),
-      mismatch_prob_(mismatch_prob), load_success_(false), external_aligner_(false) {}
+      mismatch_prob_(mismatch_prob), load_success_(false), external_aligner_(false),
+      advice_index_build_(false) {}
 
   void PreprocessReads();
   void PrepareReadIndex();
@@ -358,9 +362,14 @@ class ReadSet {
   vector<vector<pair<int, pair<int, int> > > >& AddPositions(
       const Graph& gr, const vector<int>& path, int& total_len, int st);
   vector<vector<pair<int, pair<int, int> > > >& GetPositions();
+  void GetPositionsOnlyPath(
+      const Graph& gr, const vector<int>& path, int st, unordered_map<int, vector<Aligment>>& current_aligments);
 
   void PrecomputeAlignmentForPaths(const vector<vector<int>>& paths, const Graph& gr);
 
+  unordered_map<int, vector<int>>& GetAdviceIndex() { return advice_index_; }
+  unordered_map<int, vector<int>>& GetAdviceIndex1() { return advice_index1_; }
+  void BuildAdviceIndex(const Graph& gr, int threshold);
 
   void ClearPositions();
 
@@ -377,6 +386,8 @@ class ReadSet {
 
   void LoadAligments();
   void SaveAligments(bool force=false);
+
+  const string& GetName() const { return name_; }
   
   double match_prob_;
   double mismatch_prob_;
@@ -385,10 +396,14 @@ class ReadSet {
  private:
   const vector<Aligment>& GetAligmentForSubpath(
       const Graph& gr, const vector<int>& subpath);
+  bool GetAligmentForSubpath(
+      const Graph& gr, const vector<int>& subpath, vector<Aligment>& align);
 
   void PrecomputeAligmentForSubpaths(
       const Graph& gr, const vector<vector<int> >& subpaths);
 
+  void AlignSubpathInternal(
+      const Graph& gr, const vector<int>& path);
   void AlignSubpathsInternal(
       const Graph& gr, const vector<vector<int> >& subpaths);
 
@@ -422,6 +437,8 @@ class ReadSet {
   ReadIndexMinHash read_index_;
   //ReadIndexTrivial read_index_;
   bool external_aligner_;
+  bool advice_index_build_;
+  unordered_map<int, vector<int>> advice_index_, advice_index1_;
 };
 
 class PacbioReadSet {
@@ -588,6 +605,25 @@ double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
                          double no_cov_penalty=0.0, double exp_cov_move=0.75,
                          bool use_all_to_cov=false,
                          double min_prob_per_base=-0.7, double min_prob_start=-10);
+
+struct ScoringState {
+  vector<vector<int>> old_paths;
+  int bad_bases;
+  vector<double> probs;
+
+  ScoringState() : bad_bases(0) {
+  }
+};
+
+double CalcScoreForPathsNew(const Graph& gr, const vector<vector<int>>& paths,
+                            ReadSet& read_set1, ReadSet& read_set2, 
+                            double insert_mean, double insert_std,
+                            int& zero_reads, int& total_len,
+                            ScoringState& scoring_state, 
+                            bool use_caching = true,
+                            double no_cov_penalty=0.0, double exp_cov_move=0.75,
+                            bool use_all_to_cov=false,
+                            double min_prob_per_base=-0.7, double min_prob_start=-10);
 
 
 double CalcScoreForPaths(const Graph& gr, const vector<vector<int>>& paths,
