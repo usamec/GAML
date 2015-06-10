@@ -26,8 +26,8 @@
 using namespace std;
 using namespace boost;
 
-string gBowtiePath = "../programs/bowtie2";
-string gBlasrPath = "../programs/blasr/alignment/bin";
+string gBowtiePath;
+string gBlasrPath;
 
 double ExtractDouble(const string& key, unordered_map<string, string>& cfg, double def) {
   if (cfg.count(key)) {
@@ -81,6 +81,8 @@ struct AssemblySettings {
     localp = ExtractInt("local_p", configs, 60);
     fixlenp = ExtractInt("fixlen_p", configs, 1);
     t0 = ExtractDouble("t0", configs, 0.008);
+    gBlasrPath = ExtractString("blasr_path", configs, "blasr/alignment/bin");
+    gBowtiePath = ExtractString("bowtie_path", configs, "bowtie2");
   }
 };
 
@@ -91,8 +93,8 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     int longest_read, AssemblySettings& settings) {
   int threshold = settings.threshold;
   gr.CalcReachability();
-/*  gr.CalcReachabilityBig(threshold);
-  gr.CalcReachabilityLimit(2*longest_read);*/
+  gr.CalcReachabilityBig(threshold);
+  gr.CalcReachabilityLimit(2*longest_read);
   gr.reach_limit_.resize(gr.nodes.size());
 
   int total_len;
@@ -105,7 +107,6 @@ void Optimize(Graph& gr, ProbCalculator& prob_calc, vector<vector<int>> paths,
     printf("%d/%d ", e.first, e.second);
   }
   printf("\n");
-  exit(0);
   OutputPathsToFile(paths, gr, kmer, threshold, settings.output_prefix);
   printf("\n");
 

@@ -146,7 +146,7 @@ void Graph::CalcReachabilityLimit(int max_dist) {
         }
       }
     }
-    printf("r %d %d\n", i, reach_limit_[i].size());
+//    printf("r %d %d\n", i, reach_limit_[i].size());
   }
   printf("reach limit end\n");
 }
@@ -159,7 +159,7 @@ void Graph::CalcReachabilityBig(int threshold) {
   for (int i = 0; i < nodes.size(); i++) {
     if (nodes[i]->s.length() <= threshold) continue;
     big++;
-    printf("r %d/%d %d\n", i, nodes.size(), big);
+//    printf("r %d/%d %d\n", i, nodes.size(), big);
     queue<int> fr;
     // TODO: usama je chudak a alokuje velke veci casto
 //    vector<bool> visited(nodes.size());

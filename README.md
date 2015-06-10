@@ -54,6 +54,7 @@ LastGraph in your Velvet output directory.
 Defaults to 50000.
 - t0=number             Optional. Initial temperature. Defaults to 0.008.
 - do_proprocess=whatever If set, we do only postprocessing.
+- blasr_path=path        Optional. Path to BLASR (used with pacbio reads). Default "blasr/alignment/bin".
 
 Moves configuration
 -------------------
