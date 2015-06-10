@@ -567,16 +567,9 @@ bool ExtendPaths(vector<vector<int> >& new_paths, Graph& gr, int threshold,
   }
 
   unordered_map<int, vector<int> > path_ends;
-  unordered_map<int, vector<pair<int, int> > > path_poses;
   for (int i = 0; i < new_paths.size(); i++) {
     path_ends[new_paths[i][0]].push_back(i+1);
     path_ends[new_paths[i].back()^1].push_back(-(i+1));
-    for (int j = 1; j < new_paths[i].size() - 1; j++) {
-      if (new_paths[i][j] >= 0 && gr.nodes[new_paths[i][j]]->s.length() > threshold) {
-        path_poses[new_paths[i][j]].push_back(make_pair(i, j));
-        path_poses[new_paths[i][j]^1].push_back(make_pair(i, j));
-      }
-    }
   }
 
   int join = 0;
@@ -626,36 +619,6 @@ bool ExtendPaths(vector<vector<int> >& new_paths, Graph& gr, int threshold,
   }
   int pt = path.size() - 1;
 
-  /*      geometric_distribution<int> dist(0.2);
-          int extend_limit = 2 + dist(generator);
-
-          for (int extend = 0; extend < extend_limit; extend++) {
-          if (path_poses.count(path.back())) {
-          vector<pair<int, int> > choices;
-          for (int i = 0; i < path_poses[path.back()].size(); i++) {
-          if (path_poses[path.back()][i].first != rp) {
-          choices.push_back(path_poses[path.back()][i]);
-          }
-          }
-          if (!choices.empty()) {
-          inner_join = choices[rand()%choices.size()];
-          found = true;
-          break;
-          }
-          }
-          if (gr.nodes[path.back()]->s.length() > threshold && extend > 0) {
-          break;
-          }
-          Node*next = gr.nodes[path.back()]->SampleNext();
-          if (!next) {
-          break;
-          }
-          path.push_back(next->id);
-          }
-          if (!found) {
-          continue;
-          }*/
-
   if (join != 0) {
     vector<int> join_path;
     int join_num;
@@ -686,28 +649,8 @@ bool ExtendPaths(vector<vector<int> >& new_paths, Graph& gr, int threshold,
     }
     new_paths.push_back(path);
   } else {
-    /*          if (path.back() == paths[inner_join.first][inner_join.second]) {
-                for (int i = inner_join.second + 1; i < paths[inner_join.first].size(); i++) {
-                path.push_back(paths[inner_join.first][i]);
-                }
-                new_paths[inner_join.first].resize(inner_join.second+1);
-                new_paths.erase(new_paths.begin() + rp);
-                new_paths.push_back(path);
-                } else if (path.back()^1 == paths[inner_join.first][inner_join.second]) {
-                for (int i = inner_join.second - 1; i >= 0; i--) {
-                path.push_back(paths[inner_join.first][i]^1);
-                }
-                new_paths[inner_join.first].erase(
-                new_paths[inner_join.first].begin(),
-                new_paths[inner_join.first].begin() + inner_join.second);
-                new_paths.erase(new_paths.begin() + rp);
-                new_paths.push_back(path);
-                } else {
-                assert(false);
-                }*/
     new_paths.erase(new_paths.begin() + rp);
     new_paths.push_back(path);
-    //          printf("path join %d %d %d\n", rp, inner_join.first, inner_join.second);
   }
   if (!found) {
     return false;

@@ -994,8 +994,6 @@ int main(int argc, char** argv) {
       printf("%d ", len);
     }
     printf("\n");
-//    starting_paths[0].resize(2262);
-//    starting_paths[0].resize(2259);
     printf("starting paths %d\n", starting_paths[0].size());
     OutputPathsToFile(starting_paths, gr, 61, 500, "starting3");
     printf("\n");
@@ -1019,7 +1017,6 @@ int main(int argc, char** argv) {
   int longest_read = GetLongestRead(single_reads, paired_reads, pacbio_reads);
 
   //TODO: configure optimazation 
-
 
   Optimize(gr, pc, starting_paths, advice_paired, advice_pacbio, longest_read, settings); 
 }
