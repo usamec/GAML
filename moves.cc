@@ -934,12 +934,7 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
                     ReadSet& rs1, ReadSet& rs2, int kmer, ProbCalculator& prob_calc) {
   printf("extend adv\n");
   int rp = SamplePathByLength(paths, gr);
-  printf("rp %d %d\n", rp, paths.size());
   vector<int> path = paths[rp];
-/*  for (auto &e: path) {
-    printf("%d ", e);
-  }
-  printf("\n");*/
   int rev = rand()%2;
   if (rev == 1) {
     for (int i = 0; i < path.size(); i++) {
@@ -950,12 +945,10 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
   }
   paths.erase(paths.begin()+rp);
 
-  printf("aaa\n");
   rs2.BuildAdviceIndex(gr, threshold);
   unordered_map<int, vector<int> >& read_poses = rs2.GetAdviceIndex();
   unordered_map<int, vector<int> >& read_poses_1 = rs2.GetAdviceIndex1();
 
-  printf("bbb\n");
   int tl1;
   unordered_set<int> path_v(path.begin(), path.end());
   for (auto &e: path)
@@ -968,7 +961,6 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
   bool allow_gaps = false;
   if (rand() % 5 == 0) allow_gaps = true;
 
-  printf("bbbb\n");
   for (int i = 0; i < rs1.GetNumberOfReads(); i++) {
     if (positions1[i].empty()) continue;
     if (positions1[i][0].second.second != 0) continue;
@@ -980,7 +972,6 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     } 
   }
 
-  printf("bbbbb\n");
   if (cands.empty()) {
     allow_gaps = true;
     for (int i = 0; i < rs1.GetNumberOfReads(); i++) {
@@ -995,7 +986,6 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     }
   }
 
-  printf("bbbbbb\n");
   unordered_map<int, vector<int> > path_ends;
   for (int i = 0; i < paths.size(); i++) {
     path_ends[paths[i][0]].push_back(i+1);
@@ -1035,9 +1025,9 @@ bool ExtendPathsAdv(vector<vector<int> >& paths, Graph&gr, int threshold,
     join = path_ends[path.back()][rand()%path_ends[path.back()].size()];
     found = true;
   }
-  if (rand() % 5 == 0) {
+/*  if (rand() % 5 == 0) {
     found = true;
-  }
+  }*/
   if (!found) {
     printf("join not found\n");
     return false;

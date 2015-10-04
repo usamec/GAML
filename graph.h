@@ -538,6 +538,9 @@ class PacbioReadSet {
 
   int GetReadId(const string& read_name) {
     if (read_map_.count(read_name) == 0) {
+      if (load_success_) {
+        printf("missing read %s\n", read_name.c_str());
+      }
       assert(load_success_ == false);
       int id = reads_num_;
       read_map_[read_name] = id;

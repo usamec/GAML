@@ -45,7 +45,7 @@ int ExtractInt(const string& key, unordered_map<string, string>& cfg, int def) {
 
 string ExtractString(const string &key, unordered_map<string, string>& cfg, string def) {
   if (cfg.count(key)) {
-    return cfg["key"];
+    return cfg[key];
   }
   return def;
 }
@@ -82,6 +82,7 @@ struct AssemblySettings {
     fixlenp = ExtractInt("fixlen_p", configs, 1);
     t0 = ExtractDouble("t0", configs, 0.008);
     gBlasrPath = ExtractString("blasr_path", configs, "blasr/alignment/bin");
+    printf("gBlasrPath %s\n", gBlasrPath.c_str());
     gBowtiePath = ExtractString("bowtie_path", configs, "bowtie2");
   }
 };

@@ -1268,7 +1268,19 @@ unsigned long long ReadIndexMinHash::GetMinHashForSeq(const string& seq) {
   return minhash;
 }
 
+inline bool CheckRead(const string &read) {
+  for (int i = 0; i < read.size(); i++) {
+    if (read[i] != 'A' && read[i] != 'C' && read[i] != 'G' && read[i] != 'T') {
+      return false;
+    }
+  }
+  return true;
+}
+
 void ReadIndexMinHash::AddRead(const string& seq, int read_id) {
+  if (!CheckRead(seq)) {
+    return;
+  }
   unsigned long long minhash = GetMinHashForSeq(seq);
   read_index_[minhash].push_back(read_id);
   read_len = seq.length();
@@ -2531,7 +2543,7 @@ void PacbioReadSet::ComputeAnchors(const Graph& gr) {
       vector<string> parts;
       split(parts, l, is_any_of(" "));
       int node_id = atoi(parts[1].c_str());
-      int lastsep = 0;
+      int lastsep = parts[0].length();
       for (int i = 0; i < parts[0].length(); i++) {
         if (parts[0][i] == '/') {
           lastsep = i;
@@ -2699,6 +2711,7 @@ vector<vector<pair<int, logdouble> > >& PacbioReadSet::GetReadProbabilitiesSlow(
   cmd += kThreadsBlasr;
   cmd += " >";
   cmd += tmpname3;
+  printf("command %s\n", cmd.c_str());
   system(cmd.c_str());
   
   ifstream fi(tmpname3);
@@ -2742,7 +2755,6 @@ vector<vector<pair<int, logdouble> > >& PacbioReadSet::GetReadProbabilitiesSlow(
     for (int i = 2; i < 3; i++) {
       prob = AligmentProbability(seqall, read_seq_[read_id], align, i);
     }
-
     if (prob > GetMinReadProb(read_id) || true) {
       positions_[read_id].push_back(make_pair(align.tstart, prob));
       if (save_to_cache) {
