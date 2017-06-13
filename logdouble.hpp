@@ -8,6 +8,7 @@
 
 using std::min;
 using std::max;
+using std::isinf;
 
 class logdouble {
  public:
